@@ -1,0 +1,8 @@
+# Managed by tacplus — do not edit IDs manually.
+registries:
+    - https://github.com/tacplus-dev/registry.git
+services:
+    - name: redo
+      id: 108
+      contract: https://github.com/tacplus-dev/redo.git
+      visibility: public

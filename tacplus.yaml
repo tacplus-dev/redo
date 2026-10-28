@@ -1,0 +1,14 @@
+language: rust
+# Compiler floor: the looper runs this MAJOR.MINOR line's latest patch. 2.5 is the first line with the sys
+# contract redolog.Redo (sys/redo.proto, tacplus#163 D5) and the tenant route field (tacplus#170).
+tacplus: "2.5"
+# Rust takes only pkg's last segment: the crate is redo-model.
+pkg: com.github.tacplusdev.redo
+output-dir: target/generated-sources
+src: proto
+# Tenant deletion: kernel's ConfigState.tenant_ids (proto/services/redo.proto).
+depends:
+  - kernel
+header: |
+  Copyright (c) 2026 Jody Scott
+  SPDX-License-Identifier: Apache-2.0

@@ -1,0 +1,130 @@
+// redo: durability for every tenant's Stratum, and its copy at a second site.
+//
+// Decision records (tacplus-dev/roadmap): decisions/stratum-per-tenant-2026-10-25.md
+// (items 6-8 and 11, "Scope now", and its 2026-10-28 addendum: the second site is
+// redo to redo), decisions/tenant-deletion-2026-10-27.md, and
+// decisions/tenant-routing-2026-10-26.md. The issue: tacplus-dev/redo#1.
+//
+// ONE SERVICE FOR EVERY TENANT, not per tenant. It is a tenant service of the
+// reserved restore tenant (tid 00000002, SPIFFE
+// spiffe://<td>/tenants/00000002/services/redo), never a platform service in
+// /system. Each tenant's Stratum calls it tenant to tenant through the sys
+// contract redolog.Redo (sys/redo.proto, tacplus#163 D5), which this service
+// serves by its routing label "redo": Append (acked DURABILITY_LOCAL once on
+// this site's disk, DURABILITY_REMOTE once the second site has it too) and
+// Replay (the compacted snapshot, then the tail). The tenant a write belongs to
+// is the caller's verified identity (/tenants/<tid>), never a request field.
+//
+// Every log is keyed by trust domain and tenant, here and at the second site:
+// reserved tids such as people (00000001) are the same in every deployment.
+//
+// THE SECOND SITE is another deployment's redo, reached over RedoSite below:
+// the local redo ships each tenant's log there behind the local ack, and a
+// tenant's deletion too. The call between deployments is a generated
+// cross-deployment S2S client (tacplus-dev/tacplus#204); until it lands, no
+// second site is configured in a deployment, and an append owed
+// DURABILITY_REMOTE is refused rather than left waiting.
+//
+// TENANT DELETION: kernel tombstones a deleted tenant's tid in
+// ConfigState.tenant_ids (never reused). This service watches it, deletes the
+// tenant's log (snapshot and tail) here, ships the deletion to the second site,
+// and refuses that tenant from then on.
+
+syntax = "proto3";
+
+package redo;
+
+import "sys/spec.proto";
+import "sys/redo.proto";
+
+option (spec.service) = {name: "redo", tenant_owned: true, pinned_tenant: "restore"};
+// Tenant deletion: kernel's tid tombstones (ConfigState.tenant_ids).
+option (spec.state_imports) = {source: "kernel.ConfigState"};
+
+// ============================================================================
+// Config
+// ============================================================================
+
+message Config {
+  option (spec.grpc_config) = {service_name: "redo"};
+
+  // data_dir is where the logs live: the mount of this instance's regional
+  // volume (replicated synchronously across two zones by the cloud provider),
+  // so a DURABILITY_LOCAL ack survives a zone loss. One directory per trust
+  // domain and tenant below it.
+  string data_dir = 1 [(spec.default_string) = "/var/lib/redo", (spec.assert_max_size) = 1024];
+
+  // compact_after is how many operations a tenant's tail holds before it is
+  // folded into the tenant's snapshot, so replay time does not grow forever.
+  // Only operations the second site has are folded while one is configured.
+  int64 compact_after = 2 [(spec.default_int) = 10000, (spec.assert_ge) = 1];
+}
+
+// ============================================================================
+// RedoSite: redo to redo, between two deployments
+// ============================================================================
+
+// RedoSite is how one deployment's redo ships its logs to the redo at the
+// second site. Its only caller is the redo service, of another deployment, in
+// its own restore tenant. The site receiving a shipment keys it by the source
+// trust domain and tid, never by the tid alone.
+service RedoSite {
+  option (spec.service_s2s) = {};
+
+  // Append opens a shipping stream: the source sends its tenants' operations
+  // in each tenant's seq order, and tenant deletions, and the receiving site
+  // appends each to its copy of the tenant's log and acks it once it is on its
+  // disk (the closed verb registry's Append: entries at the end of an ordered
+  // log, at a position the caller names). Within one tenant an operation's seq is one
+  // more than the last the receiving site holds; one it already holds is acked
+  // again without being written (a resend after an outage), and one past a gap
+  // is not written and is acked with the seq the site does hold, from which the
+  // source resends. A deletion deletes that tenant's log at the receiving site,
+  // which then refuses it for good; deleting a tenant twice, or one never
+  // shipped, is acked all the same.
+  rpc Append(stream Shipment) returns (stream ShipmentAck) {
+    option (spec.rpc) = {principal: RPC_PRINCIPAL_SERVICE, auth_services: ["redo"], route_field: "tenant"};
+  }
+}
+
+// Shipment is one operation of one tenant's log, or that tenant's deletion.
+message Shipment {
+  // tenant is the TARGET tenant's tid, the receiving redo instance's own
+  // (restore), the route field. It is not the tenant the log belongs to: that
+  // is tid.
+  string tenant = 1 [(spec.assert_max_size) = 8];
+  // source_trust_domain is the trust domain of the deployment whose log this
+  // is, the one the source redo runs in.
+  string source_trust_domain = 2 [(spec.assert_required) = true, (spec.assert_max_size) = 255];
+  // tid is the tenant whose log this is, in source_trust_domain.
+  string tid = 3 [(spec.assert_required) = true, (spec.assert_max_size) = 8];
+  oneof body {
+    ShippedOperation operation = 4;
+    ShippedDeletion deletion = 5;
+  }
+}
+
+// ShippedOperation is one operation of the tenant's log, as the source logged
+// it: the redolog.RedoAppend the source acked, without its route field and
+// durability.
+message ShippedOperation {
+  uint64 seq = 1;
+  repeated redolog.RedoChange changes = 2 [(spec.assert_required) = true, (spec.assert_max_size) = 1024];
+}
+
+// ShippedDeletion says the tenant was deleted at the source: its log goes, and
+// its tid is never shipped again.
+message ShippedDeletion {
+}
+
+// ShipmentAck answers one Shipment, in the order they were sent.
+message ShipmentAck {
+  string source_trust_domain = 1;
+  string tid = 2;
+  // seq is the last seq of the tenant's log the receiving site holds on disk
+  // after the shipment: the operation's own seq once it is written, lower when
+  // the shipment was past a gap.
+  uint64 seq = 3;
+  // deleted is set when the receiving site has deleted the tenant's log.
+  bool deleted = 4;
+}

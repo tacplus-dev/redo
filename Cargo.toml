@@ -1,0 +1,24 @@
+[package]
+name = "redo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+redo-model = { path = "target/generated-sources/model" }
+servicemanager = { path = "target/generated-sources/model/chassis/servicemanager" }
+logger = { path = "target/generated-sources/model/chassis/logger" }
+# The tenant a write belongs to is the caller's /tenants/<tid> namespace (src/identity.rs).
+spiffe = { path = "target/generated-sources/model/chassis/spiffe" }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+tonic = { version = "0.14", features = ["transport"] }
+# The log's frames are the generated messages, protobuf binary encoded (src/store.rs).
+prost = "0.14"
+# Each frame of a log file carries the CRC-32 of its bytes, so a torn or rotted frame is found (src/store.rs).
+crc32fast = "1"
+tracing = "0.1"
+async-trait = "0.1"
+
+[dev-dependencies]
+token = { path = "target/generated-sources/model/chassis/token" }
+tempfile = "3"
