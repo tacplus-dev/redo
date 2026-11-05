@@ -72,6 +72,7 @@ pub(crate) async fn run(core: Arc<Core>, site: Arc<dyn SecondSite>, retry_min: D
     let mut retry = retry_min;
     loop {
         let (tx, rx) = mpsc::channel(BATCH);
+        // trace: unrelated: the shipper is background work started by Core::start; one stream carries every tenant's operations, batched across Append requests (and redolog.RedoAppend carries no trace_id).
         match site.open(Box::pin(ReceiverStream::new(rx))).await {
             Ok(mut acks) => {
                 retry = retry_min;
@@ -142,6 +143,7 @@ async fn ship_tenant(core: &Arc<Core>, key: &LogKey, tx: &mpsc::Sender<Shipment>
     .map_err(|e| local(Status::internal(e.to_string())))?
     .map_err(|e| local(Status::internal(format!("{key}: {e}"))))?;
 
+    // trace: unrelated: the shipper is background work; each batch is built from many Append requests, so it has no one trace to carry (and redolog.RedoAppend carries no trace_id).
     let shipment = |body| Shipment {
         tenant: RESTORE_TID.into(),
         source_trust_domain: key.trust_domain.clone(),
