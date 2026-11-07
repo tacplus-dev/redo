@@ -1,7 +1,9 @@
 language: rust
-# Compiler floor: the looper runs this MAJOR.MINOR line's latest patch. 2.5 is the first line with the sys
-# contract redolog.Redo (sys/redo.proto, tacplus#163 D5) and the tenant route field (tacplus#170).
-tacplus: "2.5"
+# Compiler floor: the latest released MAJOR.MINOR line (tacplus-dev/roadmap items/tacplus-registry-and-floor.md);
+# tacplus.lock pins its release and build image. 2.5 was the first line with the sys contract redolog.Redo
+# (sys/redo.proto, tacplus#163 D5) and the tenant route field (tacplus#170); 2.6 adds trace_id = 200 to
+# redo's own messages (#8).
+tacplus: "2.6"
 # Rust takes only pkg's last segment: the crate is redo-model.
 pkg: com.github.tacplusdev.redo
 output-dir: target/generated-sources

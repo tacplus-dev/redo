@@ -31,7 +31,8 @@ configured, and a write owed `DURABILITY_REMOTE` is refused.
 
 ## Building
 
-The gates: generate with tacplus at the floor `tacplus.yaml` declares (`tacplus build`), then
+The gates: generate with tacplus as `tacplus.lock` pins it (`tacplus build`, run in the lock's `build_image`; the
+lock pins a release of the floor `tacplus.yaml` declares, and moves only with `tacplus pin`, in a commit), then
 `cargo build --locked` and `cargo test --locked` (with `protoc` on the path: a dependency's build script runs it).
 `tacplus build` resolves `depends` (kernel, for its tenant tombstones) through the private tacplus-dev/registry,
 so it needs GitHub credentials that can read it; that is why there is no CI workflow for the gates yet
