@@ -68,7 +68,7 @@ async fn replay(redo: &RedoServer, caller: &Caller) -> Result<Vec<RedoReplayEntr
     let req = RedoReplayRequest { tenant: RESTORE.into(), ..Default::default() };
     let mut s = redo.replay(Some(caller), req).await?.into_inner();
     let mut out = Vec::new();
-    while let Some(e) = tokio::time::timeout(Duration::from_secs(5), s.next()).await.expect("replay stalled") {
+    while let Some(e) = tokio::time::timeout(DEADLINE, s.next()).await.expect("replay stalled") {
         out.push(e?);
     }
     Ok(out)
@@ -416,7 +416,7 @@ async fn ship(site: &SiteServer, shipments: Vec<Shipment>) -> Vec<Result<Shipmen
     let caller = service_caller(&format!("/tenants/{RESTORE}"), "redo");
     let inbound = Box::pin(tokio_stream::iter(shipments.into_iter().map(Ok)));
     let s = site.append(Some(&caller), tonic::Request::new(inbound)).await.unwrap().into_inner();
-    tokio::time::timeout(Duration::from_secs(5), s.collect::<Vec<_>>()).await.unwrap()
+    tokio::time::timeout(DEADLINE, s.collect::<Vec<_>>()).await.unwrap()
 }
 
 fn site_ack(td: &str, tid: &str, seq: u64, deleted: bool) -> ShipmentAck {

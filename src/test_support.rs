@@ -20,6 +20,13 @@ use crate::site::{SecondSite, ShipmentAcks, Shipments};
 
 pub const RESTORE: &str = "00000002";
 
+/// How long a test waits for what must come: an ack, a replay, a condition.
+/// Every append, deletion and compaction is fsynced first, and an fsync can
+/// wait seconds on a disk's write-back backlog (a build just before, say): a
+/// slow disk must not fail a test. A passing test never waits this long; only
+/// a failing one takes this long to report.
+pub const DEADLINE: Duration = Duration::from_secs(60);
+
 /// A PUT of `value` at a string key.
 pub fn put(record_type: &str, key: &str, value: &[u8]) -> RedoChange {
     RedoChange {
@@ -121,14 +128,14 @@ impl SecondSite for InProcessSite {
     }
 }
 
-/// The next ack, failing the test after five seconds.
+/// The next ack, failing the test after the `DEADLINE`.
 pub async fn next_ack<S>(acks: &mut S) -> Result<RedoAck, tonic::Status>
 where
     S: Stream<Item = Result<RedoAck, tonic::Status>> + Unpin,
 {
-    tokio::time::timeout(Duration::from_secs(5), acks.next())
+    tokio::time::timeout(DEADLINE, acks.next())
         .await
-        .expect("no ack within 5s")
+        .expect("no ack within the deadline")
         .expect("the ack stream ended")
 }
 
@@ -142,13 +149,13 @@ where
     }
 }
 
-/// Waits until `cond` holds, failing the test after five seconds.
+/// Waits until `cond` holds, failing the test after the `DEADLINE`.
 pub async fn eventually(what: &str, mut cond: impl FnMut() -> bool) {
-    for _ in 0..500 {
-        if cond() {
-            return;
+    let deadline = tokio::time::Instant::now() + DEADLINE;
+    while !cond() {
+        if tokio::time::Instant::now() >= deadline {
+            panic!("not within the deadline: {what}");
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("not within 5s: {what}");
 }
