@@ -1,0 +1,244 @@
+= init
+= thinking_tokens
+= thinking_tokens
+= thinking_tokens
+> Bash gh issue view 8 --repo tacplus-dev/redo --comments --json labels,comments,author | head -c 4000; echo; git log --oneline -3 origin/looper/redo-8 2>/dev/null; git fetch -q origin; git branch -r; cat tacplus.yaml; ls
+< specify only one of --comments or --json  Display the title, body, and other information about an issue.  When `--comments` is used, terminal output includes the issue details and comments. When output is piped or redirected, only the comments are printed.  With `--web` flag, open the issue in a web...
+> Bash gh issue view 8 --repo tacplus-dev/redo --json labels,comments -q '.labels[].name, (.comments[]|.author.login+" "+.authorAssociation+": "+.body[0:200])'; cat README.md | sed -n '/Build/,/^## [^B]/p'; grep -n -i 'floor\|2\.5\|tacplus' STATE.md; ls .github 2>/dev/null; git tag; tacplus --version
+= task_started
+= task_notification
+< bug approved looper:in-progress tacplus-looper NONE: The looper of redo starts this issue with its limit 4h capped at 3h57m by this job (https://gitlab.com/tacplus-dev/looper/-/jobs/17809953121), which ends sooner: the run stops by itself before then, i tacplus-looper NONE: This issue was `looper:in...
+= thinking_tokens
+= thinking_tokens
+> Bash ls .github/workflows; cat .github/workflows/*; file $(which tacplus); head -60 $(which tacplus); gh release view v2.6.0 --repo tacplus-dev/tacplus | sed -n '/Upgrading/,/^## /p' | head -50
+< planning-files.yml # The planning files check (tacplus-dev/roadmap decisions/repo-roadmap-files-2026-10-27.md): # STATE.md, PROPOSALS.md and HISTORY.md exist and HISTORY.md is append-only. See tacplus-dev/looper. name: planning-files on:   push:     branches: [main]   pull_request: {} permissions:  ...
+= thinking_tokens
+= thinking_tokens
+> Bash sed -n 60,200p $(which tacplus)
+< # The release: the pin, else the floor's newest patch. The releases list is # asked with the token when it is GitHub's (a higher rate limit), the token # given on curl's stdin, never its command line. version="" [[ -n "$project" && -f "$project/tacplus.lock" ]] &&   version="$(sed -n -E 's/^tacplus:...
+Now edit the floor and comment, then pin.
+> Edit /builds/looper/redo/issues/8/tacplus.yaml
+< The file /builds/looper/redo/issues/8/tacplus.yaml has been updated successfully.
+> Bash tacplus --version && tacplus pin 2>&1 | tail -20; cat tacplus.lock; git status --short
+= task_started
+= task_notification
+< tacplus version 2.6.1 Pinned tacplus 2.6.1, build image ghcr.io/tacplus-dev/tacplus/build:2.6.1@sha256:91f42995e0e3d6f959a7f75177caf94b2aded90fc36c8492dbcd320ca0d187f5. Commit tacplus.lock. # The tacplus release and build image every build of this repository runs, exactly. # Written by `tacplus pin`...
+= thinking_tokens
+= thinking_tokens
+> Bash cat > /tmp/pinned-build.sh <<'EOF' #!/usr/bin/env bash # Run tacplus in the exact build image tacplus.lock pins (the wrapper uses build:<line>). set -euo pipefail source /usr/local/bin/looper-lib.sh [[ -n "${GH_TOKEN:-}" ]] || export GH_TOKEN="$(gh auth token)" img="$(sed -n 's/^build_image: //p' ta...
+< rc=1 /tmp/pinned-build.sh: line 4: /usr/local/bin/looper-lib.sh: No such file or directory  M tacplus.yaml ?? tacplus.lock
+> Bash echo "LOOPER_LIB=$LOOPER_LIB"; ls /usr/local/bin | head -30; ls /usr/local/lib 2>/dev/null | head
+< LOOPER_LIB=/usr/local/lib/looper/looper-lib.sh bandit cargo-deny claude docker dotnet gh gitleaks glab gosec govulncheck just looper-build looper-dispatch looper-docker looper-docker-broker looper-identity looper-pkill looper-recap looper-ruleset looper-scan looper-smoke looper-suggest looper-token ...
+> Bash sed -i 's#source /usr/local/bin/looper-lib.sh#source "$LOOPER_LIB"#' /tmp/pinned-build.sh && /tmp/pinned-build.sh build > /tmp/tpbuild.log 2>&1; echo rc=$?; grep -E "WARN|ERROR" /tmp/tpbuild.log; tail -3 /tmp/tpbuild.log; git status --short
+= task_started
+= task_notification
+< rc=0 2026-11-07T15:44:19.584Z	INFO	generation complete	{"language": "RUST"} 2026-11-07T15:44:19.586Z	INFO	formatting files with codefile.IndentCode	{"ext": ".rs", "count": 350} 2026-11-07T15:44:19.859Z	INFO	build complete	{"output": "/builds/looper/redo/issues/8/target/generated-sources/model", "mod...
+Now cargo build/test, detached.
+> Bash which protoc; nohup sh -c 'cargo build --locked && cargo test --locked' > /tmp/cargo.log 2>&1 & echo $!
+< /usr/local/bin/protoc 1032
+Meanwhile, the doc updates.
+> Bash sed -n 1,20p STATE.md; grep -n 'tacplus\|2\.5' README.md CONTRIBUTING* PROPOSALS.md 2>/dev/null | head -30
+< # State: redo  Overwritten to stay current (loopers and agents). Last updated: 2026-10-28 by the looper (#1).  - **Version / line:** unreleased (no tag yet; v0.1.0 is #2); tacplus floor 2.5 - **Works:** the service, tested in process (#1): `redolog.Redo` `Append` (seq order per tenant, LOCAL ack aft...
+= thinking_tokens
+= thinking_tokens
+> Bash git log --oneline v0.1.0..origin/main; git show v0.1.0 --stat --format='%H %s %ad' | head -5; gh release list --repo tacplus-dev/redo; git branch -r | grep release
+< tag v0.1.0 Tagger: Jody Scott <jody@aporeto.com>  redo 0.1.0: first release, a source tag on main (Jody's delegation, 2026-11-07), for fleets on tacplus 2.6 (fleet-seatrials#1). Image and GitHub release: #2's phase 2. Known flaky gate: #7.3f0819f23350e5061238172f84d912ae2f61b802 HISTORY.md: #6 (loop...
+= thinking_tokens
+= thinking_tokens
+> Bash python3 -I - <<'EOF' p='STATE.md'; s=open(p).read() s=s.replace("Last updated: 2026-10-28 by the looper (#1).","Last updated: 2026-11-07 by the looper (#8).") s=s.replace("- **Version / line:** unreleased (no tag yet; v0.1.0 is #2); tacplus floor 2.5", "- **Version / line:** v0.1.1 (source tags on m...
+< diff --git a/README.md b/README.md index a39b181..dadcd37 100644 --- a/README.md +++ b/README.md @@ -31,7 +31,8 @@ configured, and a write owed `DURABILITY_REMOTE` is refused.    ## Building   -The gates: generate with tacplus at the floor `tacplus.yaml` declares (`tacplus build`), then +The gates: ...
+= thinking_tokens
+= thinking_tokens
+> Bash /usr/local/bin/looper-trace check 2>&1 | tail -30; tail -3 /tmp/cargo.log
+< looper-trace: /builds/looper/redo/issues/8 verdict: pass (0 handlers, 0 findings)    Compiling foldhash v0.1.5    Compiling linux-raw-sys v0.12.1    Compiling ryu v1.0.23
+= thinking_tokens
+= thinking_tokens
+> Bash ls src; grep -n 'trace' src/*.rs | head -30
+< main.rs service.rs service_tests.rs ship.rs site.rs store.rs store_tests.rs test_support.rs src/ship.rs:75:        // trace: unrelated: the shipper is background work started by Core::start; one stream carries every tenant's operations, batched across Append requests (and redolog.RedoAppend carries ...
+> Bash grep -rn 'trace_id' target/generated-sources | grep -v '^\S*:.*//' | awk -F: '{print $1}' | sort | uniq -c | head -20; grep -n '\.await\|client' src/service.rs src/site.rs | grep -iv 'test' | head -30
+<       5 target/generated-sources/model/proto/common/credentials.proto      32 target/generated-sources/model/proto/common/hazelcast.proto     413 target/generated-sources/model/proto/services/kernel.proto      28 target/generated-sources/model/proto/services/oauth.proto      23 target/generated-sour...
+= thinking_tokens
+= thinking_tokens
+= thinking_tokens
+Floor moved to 2.6, `tacplus.lock` pinned (2.6.1, image by digest), generation clean; waiting on `cargo build/test`.
+> Bash sleep 90; tail -3 /tmp/cargo.log
+< <tool_use_error>Blocked: sleep 90 followed by: tail -3 /tmp/cargo.log. To wait for a condition, use Monitor with an until-loop (e.g. `until <check>; do sleep 2; done`). To wait for a command you started, use run_in_background: true. Do not chain shorter sleeps to work around this block.</tool_use_er...
+> Bash until ! kill -0 1032 2>/dev/null; do sleep 5; done; tail -5 /tmp/cargo.log; grep -E '^test result|warning: unused|error' /tmp/cargo.log | head
+= task_started
+= task_notification
+< test store::tests::compaction_folds_the_tail_into_one_put_per_live_entry ... ok test service_tests::local_writes_are_shipped_behind_the_ack ... ok  test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.73s    Downloaded thiserror v1.0.69   Downloaded thiserror-im...
+= thinking_tokens
+= thinking_tokens
+> Bash git status --short && git add tacplus.yaml tacplus.lock STATE.md README.md && git commit -q -F - <<'EOF' tacplus: move the floor to 2.6 and commit tacplus.lock (#8)  The floor follows the latest released line (tacplus-dev/roadmap items/tacplus-registry-and-floor.md), now 2.6; 2.6 asks every reposito...
+<  M README.md  M STATE.md  M tacplus.yaml ?? tacplus.lock 6a4be57 tacplus: move the floor to 2.6 and commit tacplus.lock (#8) remote:      https://github.com/tacplus-dev/redo/pull/new/looper/redo-8         remote:  [2026-11-07T15:50:26Z] checkpoint of #8 (a step) pushed to looper/redo-8:  6 files cha...
+= thinking_tokens
+= thinking_tokens
+> Bash git fetch -q origin && git diff --stat origin/main origin/looper/redo-8; git status --short
+<  .looper/claude.log |  72 ++++++++++++++++++++++  .looper/prompt.md  | 171 +++++++++++++++++++++++++++++++++++++++++++++++++++++  README.md          |   3 +-  STATE.md           |   5 +-  tacplus.lock       |   4 ++  tacplus.yaml       |   8 ++-  6 files changed, 257 insertions(+), 6 deletions(-)
+> Bash nohup /usr/local/bin/repo-looper --repo redo --issue 8 --land --gates "tacplus build && cargo build --locked && cargo test --locked" > /tmp/land.log 2>&1 & echo $!
+< 6740
+> Bash until ! kill -0 6740 2>/dev/null; do sleep 15; done; tail -25 /tmp/land.log
+= task_started
+= background_tasks_changed
+= task_updated
+< Command did not complete within its 600s timeout and was moved to the background (ID: b5xpg5ub5). Output is being written to: /builds/looper/redo/homes/looper-8/tmp/claude-61000/-builds-looper-redo-issues-8/6633f1f1-1e56-4b88-9557-cb93576c5792/tasks/b5xpg5ub5.output. You will be notified when it com...
+Landing is queued with the manager; waiting for its verdict.
+> Bash tail -8 /tmp/land.log
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash until ! kill -0 6740 2>/dev/null; do sleep 15; done; tail -25 /tmp/land.log
+= background_tasks_changed
+= task_started
+< Command running in background with ID: bdy9vzzxn. Output is being written to: /builds/looper/redo/homes/looper-8/tmp/claude-61000/-builds-looper-redo-issues-8/6633f1f1-1e56-4b88-9557-cb93576c5792/tasks/bdy9vzzxn.output. You will be notified when it completes. To check interim output, use Read on tha...
+> ToolSearch {"query":"select:TaskStop","max_results":1}
+< 
+> TaskStop {"task_id":"b5xpg5ub5"}
+= task_updated
+= task_notification
+= background_tasks_changed
+< {"message":"Successfully stopped task: b5xpg5ub5 (until ! kill -0 6740 2>/dev/null; do sleep 15; done; tail -25 /tmp/land.log)","task_id":"b5xpg5ub5","task_type":"local_bash","command":"until ! kill -0 6740 2>/dev/null; do sleep 15; done; tail -25 /tmp/land.log"}
+Waiting on the land's verdict (background waiter notifies me).
+> Bash until ! kill -0 6740 2>/dev/null; do sleep 15; done; tail -25 /tmp/land.log
+= task_started
+= task_updated
+= task_notification
+= background_tasks_changed
+= background_tasks_changed
+= task_updated
+< Command did not complete within its 600s timeout and was moved to the background (ID: b5juba61l). Output is being written to: /builds/looper/redo/homes/looper-8/tmp/claude-61000/-builds-looper-redo-issues-8/6633f1f1-1e56-4b88-9557-cb93576c5792/tasks/b5juba61l.output. You will be notified when it com...
+> Bash tail -5 /tmp/land.log; kill -0 6740 && echo running
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash until ! kill -0 6740 2>/dev/null; do sleep 15; done; tail -25 /tmp/land.log
+= background_tasks_changed
+= task_started
+< Command running in background with ID: b0mty3i1n. Output is being written to: /builds/looper/redo/homes/looper-8/tmp/claude-61000/-builds-looper-redo-issues-8/6633f1f1-1e56-4b88-9557-cb93576c5792/tasks/b0mty3i1n.output. You will be notified when it completes. To check interim output, use Read on tha...
+> TaskStop {"task_id":"b5juba61l"}
+= task_updated
+= task_notification
+= background_tasks_changed
+< {"message":"Successfully stopped task: b5juba61l (until ! kill -0 6740 2>/dev/null; do sleep 15; done; tail -25 /tmp/land.log)","task_id":"b5juba61l","task_type":"local_bash","command":"until ! kill -0 6740 2>/dev/null; do sleep 15; done; tail -25 /tmp/land.log"}
+= thinking_tokens
+= thinking_tokens
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash gh issue view 8 --repo tacplus-dev/redo --json comments -q '.comments[-1]|.createdAt+" "+.body[0:300]'; timeout 580 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< 2026-11-07T15:42:58Z The looper of redo starts this issue with its limit 4h capped at 4h by this job (https://gitlab.com/tacplus-dev/looper/-/jobs/17830283053), which ends sooner: the run stops by itself before then, its work checkpointed, and the next run resumes it. [2026-11-07T15:50:32Z] checkpoi...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+Still queued with the manager (~50 min); continuing to wait.
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log; git -C /builds/looper/redo/issues/8 ls-remote origin main
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log; date -u
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+Still waiting in the manager's queue (~1h50 so far).
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log; date -u
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_updated
+= task_notification
+= background_tasks_changed
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log; date -u
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+= thinking_tokens
+= thinking_tokens
+Still queued after ~2h50; updating the checkpoint so a next run can finish (tag, comment, close) if time runs out.
+> Bash /usr/local/bin/repo-looper --repo redo --issue 8 --checkpoint "Commit 6a4be57 (floor 2.6, tacplus.lock 2.6.1 + build:2.6.1 by digest, STATE/README) queued to land since 15:50Z with gates 'tacplus build && cargo build --locked && cargo test --locked' (local: generation clean, 39 tests passed; looper-...
+< [2026-11-07T18:38:39Z] checkpoint of #8 (a step) pushed to looper/redo-8:  7 files changed, 378 insertions(+), 6 deletions(-)
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+> Bash timeout 590 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log; date -u
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+= thinking_tokens
+= thinking_tokens
+> Bash timeout 540 bash -c 'until ! kill -0 6740 2>/dev/null; do sleep 15; done'; tail -4 /tmp/land.log
+= task_started
+= task_notification
+< [2026-11-07T15:50:32Z] checkpoint of #8 (land queued) pushed to looper/redo-8:  7 files changed, 268 insertions(+), 6 deletions(-) [2026-11-07T15:50:34Z] queued: the manager of redo merges looper/redo-8 after the lands queued before it, one at a time, and says on the issue what came of it; waiting f...
+Issue #8 isn't finished: my change is committed but still hasn't landed. It has been waiting in the manager's queue since 15:50Z, over three hours, and this run is about to hit its time limit. The manager will still land it after this run ends and post the verdict on the issue.
+
+**The change** (commit `6a4be57`, on `looper/redo-8`):
+- `tacplus.yaml` now has `tacplus: "2.6"`, and I rewrote the comment above it.
+- `tacplus.lock` is new. `tacplus pin` wrote it, pinning tacplus 2.6.1 and the image `ghcr.io/tacplus-dev/tacplus/build:2.6.1@sha256:91f42995…`.
+- `STATE.md` names the 2.6 floor and the lock, and the README's "Building" section names the lock.
+
+**Checks, run locally before landing:**
+- `tacplus build`, run in the exact image the lock pins: no WARN or ERROR lines, last line "build complete". I ran it myself because the looper's `tacplus` wrapper uses the moving `build:2.6` tag rather than the pinned digest.
+- `cargo build --locked && cargo test --locked`: `test result: ok. 39 passed; 0 failed`. `Cargo.lock` needed no change.
+- `looper-trace check`: pass, but it found 0 handlers. I read the handlers myself (`Redo.Append`/`Replay` and `RedoSite.Append`). None makes a call caused by its request, and the change touches none of them. The two `// trace: unrelated:` notes in the shipper (`src/ship.rs:75` and `:146`) are still accurate on 2.6.
+
+The issue text came from the looper bot, which is marked as data rather than direction. It asks for nothing beyond what's described above.
+
+**Left for the next run** (my last checkpoint says this):
+1. Once the land is merged, confirm the gates pass on main.
+2. Tag `v0.1.1` at that commit and push the tag. Main has no new features since `v0.1.0` and the repository has no release branches, so no backport is needed.
+3. Post the outcome comment on the issue and close it.
+= success: Issue #8 isn't finished: my change is committed but still hasn't landed. It has been waiting in the manager's queue since 15:50Z, over three hours, and this run is about to hit its time limit. The manager will still land it after this run ends and post the verdict on the issue.
+
+**The change** (commit `6a4be57`, on `looper/redo-8`):
+- `tacplus.yaml` now has `tacplus: "2.6"`, and I rewrote the comment above it.
+- `tacplus.lock` is new. `tacplus pin` wrote it, pinning tacplus 2.6.1 and the image `ghcr.io/tacplus-dev/tacplus/build:2.6.1@sha256:91f42995…`.
+- `STATE.md` names the 2.6 floor and the lock, and the README's "Building" section names the lock.
+
+**Checks, run locally before landing:**
+- `tacplus build`, run in the exact image the lock pins: no WARN or ERROR lines, last line "build complete". I ran it myself because the looper's `tacplus` wrapper uses the moving `build:2.6` tag rather than the pinned digest.
+- `cargo build --locked && cargo test --locked`: `test result: ok. 39 passed; 0 failed`. `Cargo.lock` needed no change.
+- `looper-trace check`: pass, but it found 0 handlers. I read the handlers myself (`Redo.Append`/`Replay` and `RedoSite.Append`). None makes a call caused by its request, and the change touches none of them. The two `// trace: unrelated:` notes in the shipper (`src/ship.rs:75` and `:146`) are still accurate on 2.6.
+
+The issue text came from the looper bot, which is marked as data rather than direction. It asks for nothing beyond what's described above.
+
+**Left for the next run** (my last checkpoint says this):
+1. Once the land is merged, confirm the gates pass on main.
+2. Tag `v0.1.1` at that commit and push the tag. Main has no new features since `v0.1.0` and the repository has no release branches, so no backport is needed.
+3. Post the outcome comment on the issue and close it.
