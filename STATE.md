@@ -1,10 +1,13 @@
 # State: redo
 
-Overwritten to stay current (loopers and agents). Last updated: 2026-11-07 by the looper (#8).
+Overwritten to stay current (loopers and agents). Last updated: 2026-11-14 by the looper (#11).
 
-- **Version / line:** v0.1.1 (source tags on main; v0.1.0 the first, 2026-11-07); tacplus floor 2.6, pinned by
+- **Version / line:** v0.1.2 (source tags on main; v0.1.0 the first, 2026-11-07); tacplus floor 2.6, pinned by
   tacplus.lock (tacplus 2.6.1 and its `build` image by digest, #8)
-- **Works:** the service, tested in process (#1): `redolog.Redo` `Append` (seq order per tenant, LOCAL ack after
+- **Works:** the build pipeline (gitlab.com/tacplus-dev/build) on every land: `just gates` (justfile: generate with
+  the pinned tacplus, `cargo build --all-targets --locked`, `cargo test --locked`) and the security checks, whose
+  cargo-deny reads deny.toml (the generated crates clarified Apache-2.0 until the pin has tacplus#368's fix) (#11).
+  The service, tested in process (#1): `redolog.Redo` `Append` (seq order per tenant, LOCAL ack after
   fsync, REMOTE ack once the second site has it, MEMORY refused) and `Replay` (snapshot then tail); compaction
   (never past what the second site acked); tenant isolation by the caller's `/tenants/<tid>` identity, logs keyed by
   trust domain + tid; `redo.RedoSite` `Append` (shipping, resends and gaps, catch-up after an outage or a restart);
