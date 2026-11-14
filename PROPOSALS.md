@@ -19,10 +19,16 @@ the looper then marks it `promoted` or `declined` here with the date.
 - **Formal verification of the log's framing and recovery** (2026-10-28, #1): src/store.rs's torn-tail and
   compaction recovery is tested by example; a Kani harness over frame parsing (tacplus-images record: Kani is in the
   build image) would cover every cut point.
-- **The gates in CI** (2026-10-28, #1): `tacplus build` resolves `depends: kernel` through the private
-  tacplus-dev/registry, which a workflow's own token cannot read, so the gates run only where tacplus has GitHub
-  credentials (the looper). kernel, oauth and tenantecho, which also have `depends`, have no gates workflow either.
-  The build container of decisions/deterministic-builds-2026-10-27.md, or a read token for the registry, would let
-  CI run them.
+- **Drop deny.toml's license clarifications** (2026-11-14, #11): tacplus 2.6.1 writes no `license` into the
+  manifests of the crates it generates, so the security job's cargo-deny fails each as `unlicensed`
+  (tacplus-dev/tacplus#368). `deny.toml` clarifies the 22 generated crates as Apache-2.0 (the header
+  `tacplus.yaml` puts on every generated file) over looper-scan's default policy, copied. Once `tacplus pin` moves
+  tacplus.lock to a release whose manifests declare their license (#368's backport to the 2.6 line, v2.6.4), delete
+  the clarifications; if looper-scan's default policy changes meanwhile, `deny.toml`'s copy must follow it.
 
 ## Promoted / declined
+- **The gates in CI** (2026-10-28, #1; done 2026-11-14, #11): `tacplus build` resolves `depends: kernel` through
+  the private tacplus-dev/registry, which a workflow's own token cannot read, so the gates ran only where tacplus had
+  GitHub credentials (the looper). The build pipeline of decisions/builds-in-containers-2026-11-03.md
+  (gitlab.com/tacplus-dev/build) now runs `just gates` on every land and build of redo, in the pinned `build_image`,
+  reading the registry through the read-only tacplus-reader app; the first green run is #11's.

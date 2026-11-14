@@ -35,5 +35,10 @@ The gates, `just gates` ([justfile](justfile)): generate with tacplus as `tacplu
 lock pins a release of the floor `tacplus.yaml` declares, and moves only with `tacplus pin`, in a commit), then
 `cargo build --all-targets --locked` and `cargo test --locked` (with `protoc` on the path: a dependency's build script runs it).
 `tacplus build` resolves `depends` (kernel, for its tenant tombstones) through the private tacplus-dev/registry,
-so it needs GitHub credentials that can read it; that is why there is no CI workflow for the gates yet
+so it needs GitHub credentials that can read it. They run in the build pipeline (gitlab.com/tacplus-dev/build, see
+tacplus-dev/looper's README): on every land, in the lock's `build_image`, followed by the security checks on the
+tree the gates generated. Those checks' cargo-deny reads [deny.toml](deny.toml): looper-scan's default policy, plus
+the generated crates clarified as Apache-2.0, the license of the header `tacplus.yaml` puts on every generated
+file, because tacplus 2.6.1 writes no `license` into their manifests
+([tacplus#368](https://github.com/tacplus-dev/tacplus/issues/368)). There is no GitHub workflow for the gates
 ([PROPOSALS.md](PROPOSALS.md)).

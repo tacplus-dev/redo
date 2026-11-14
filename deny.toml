@@ -1,0 +1,120 @@
+# cargo-deny's policy for the build's security job (tacplus-dev/looper, looper-scan):
+# a repository's deny.toml replaces looper-scan's default, so this is that default
+# (looper#49: the RustSec advisories, licenses an Apache-2.0 project may ship,
+# crates.io only), kept the same, plus the clarifications below.
+#
+# The clarifications: tacplus 2.6.1 (tacplus.lock) writes no `license` into the
+# manifests of the crates it generates under target/generated-sources/model, so
+# cargo-deny reports each as `unlicensed` (tacplus-dev/tacplus#368). Every file of
+# those crates carries the header tacplus.yaml declares, `SPDX-License-Identifier:
+# Apache-2.0`, which is what each clarification states. Once tacplus.lock pins a
+# tacplus whose manifests declare their license (#368's fix, 2.6.4 on the 2.6 line),
+# delete the clarifications (PROPOSALS.md).
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = ["Apache-2.0", "Apache-2.0 WITH LLVM-exception", "MIT", "MIT-0", "BSD-2-Clause", "BSD-3-Clause", "ISC",
+         "Zlib", "0BSD", "CC0-1.0", "Unicode-3.0", "Unicode-DFS-2016", "BSL-1.0", "MPL-2.0", "Unlicense", "CDLA-Permissive-2.0"]
+
+# The generated crates (tacplus#368): redo's model and the chassis crates it carries.
+[[licenses.clarify]]
+crate = "redo-model"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "redo-model-types"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "am"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "approval"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "c2d"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "client_im"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "collection"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "diskstore"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "grpcconfig"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "grpcserver"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "healthreporter"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "httpclient"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "ip"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "jwk"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "key"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "logger"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "service_im"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "servicemanager"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "spiffe"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "tags"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "token"
+expression = "Apache-2.0"
+license-files = []
+[[licenses.clarify]]
+crate = "x509"
+expression = "Apache-2.0"
+license-files = []
+
+[bans]
+multiple-versions = "allow"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
