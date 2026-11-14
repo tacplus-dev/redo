@@ -436,8 +436,8 @@ impl Iterator for Replay {
         }
         // The tail as indexed when the replay began, from its first indexed
         // frame: a later append is not in it, and neither are folded operations
-        // a crashed compaction left before it.
-        while self.tail_left > 0 {
+        // a crashed compaction left before it. One frame per call.
+        if self.tail_left > 0 {
             let op = match read_whole_frame(self.tail.as_mut()?, "the tail") {
                 Ok(Some(op)) => op,
                 Ok(None) => return Some(self.fail(StoreError::Corrupt("the tail is shorter than its index".into()))),
