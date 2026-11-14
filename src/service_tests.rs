@@ -98,6 +98,15 @@ fn tombstone(tid: &str) -> TenantIdRow {
     TenantIdRow { tid: tid.into(), tenant_namespace: format!("/tenants/{tid}"), tombstoned_at_ms: 1, ..Default::default() }
 }
 
+/// The trace_ids of the deletions of `tid` sent to the second site.
+fn deletion_traces(link: &InProcessSite, tid: &str) -> Vec<String> {
+    link.sent()
+        .into_iter()
+        .filter(|s| s.tid == tid && matches!(s.body, Some(shipment::Body::Deletion(_))))
+        .map(|s| s.trace_id)
+        .collect()
+}
+
 /// Site one shipping to site two, both in this process.
 struct TwoSites {
     _dirs: (tempfile::TempDir, tempfile::TempDir),
@@ -519,6 +528,20 @@ async fn a_deleted_tenant_is_deleted_at_both_sites_and_refused() {
 }
 
 #[tokio::test]
+async fn a_deletion_carries_its_tombstones_trace_id_to_the_second_site() {
+    let sites = TwoSites::start(1000);
+    let mut s = Appender::open(&sites.redo(), &stratum(A)).await.unwrap();
+    s.send(1, vec![put("t.R", "x", b"1")], Durability::Remote).await;
+    s.ack().await;
+    s.ack().await;
+
+    sites.one.apply_tenant_ids(vec![TenantIdRow { trace_id: "t-delete-a".into(), ..tombstone(A) }]);
+    let a = LogKey::new(ONE, A).unwrap();
+    eventually("deleted at the second site", || sites.two.store.is_deleted(&a).unwrap()).await;
+    assert_eq!(deletion_traces(&sites.link, A), vec!["t-delete-a".to_string()]);
+}
+
+#[tokio::test]
 async fn a_deletion_reaches_the_second_site_after_an_outage_and_a_restart() {
     let (d1, d2) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let two = start_core(TWO, d2.path(), 1000, None);
@@ -531,7 +554,7 @@ async fn a_deletion_reaches_the_second_site_after_an_outage_and_a_restart() {
     drop(s);
 
     link.set_up(false);
-    one.apply_tenant_ids(vec![tombstone(A)]);
+    one.apply_tenant_ids(vec![TenantIdRow { trace_id: "t-delete-a".into(), ..tombstone(A) }]);
     one.shutdown().await;
     let a = LogKey::new(ONE, A).unwrap();
     assert!(!two.store.is_deleted(&a).unwrap());
@@ -539,6 +562,8 @@ async fn a_deletion_reaches_the_second_site_after_an_outage_and_a_restart() {
     link.set_up(true);
     let _one = start_core(ONE, d1.path(), 1000, Some(link.clone()));
     eventually("the deletion was shipped", || two.store.is_deleted(&a).unwrap()).await;
+    // Shipped after the restart, it still carries the tombstone's trace_id.
+    assert_eq!(deletion_traces(&link, A), vec!["t-delete-a".to_string()]);
 }
 
 #[tokio::test]

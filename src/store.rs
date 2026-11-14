@@ -336,16 +336,18 @@ impl Store {
 
     /// Deletes the tenant's log (snapshot and tail) and refuses the tenant from
     /// then on. `unshipped` records that the second site still has to delete
-    /// it. Returns false when it was already deleted (deletion is idempotent).
-    pub fn delete(&self, key: &LogKey, unshipped: bool) -> Result<bool, StoreError> {
+    /// it, with the trace_id of the tombstone that caused the deletion, which
+    /// the deletion carries when it is shipped. Returns false when it was
+    /// already deleted (deletion is idempotent).
+    pub fn delete(&self, key: &LogKey, unshipped: Option<&str>) -> Result<bool, StoreError> {
         let log = self.log(key)?;
         let mut log = log.lock().unwrap();
         if log.deleted {
             return Ok(false);
         }
         create_dirs(&log.dir)?;
-        if unshipped {
-            write_synced(&log.dir.join(DELETION_UNSHIPPED), b"")?;
+        if let Some(trace_id) = unshipped {
+            write_synced(&log.dir.join(DELETION_UNSHIPPED), trace_id.as_bytes())?;
         }
         // The tombstone before the data: a crash in between leaves a deleted
         // tenant whose files the next load removes.
@@ -377,11 +379,20 @@ impl Store {
         Ok(())
     }
 
-    /// Whether the tenant was deleted and the second site has not acked it.
-    pub fn deletion_unshipped(&self, key: &LogKey) -> Result<bool, StoreError> {
+    /// When the tenant was deleted and the second site has not acked it, the
+    /// trace_id of the tombstone that caused the deletion (empty for none, as
+    /// a marker written before it kept one is).
+    pub fn deletion_unshipped(&self, key: &LogKey) -> Result<Option<String>, StoreError> {
         let log = self.log(key)?;
         let log = log.lock().unwrap();
-        Ok(log.deleted && log.dir.join(DELETION_UNSHIPPED).exists())
+        if !log.deleted {
+            return Ok(None);
+        }
+        match fs::read(log.dir.join(DELETION_UNSHIPPED)) {
+            Ok(b) => Ok(Some(String::from_utf8_lossy(&b).into_owned())),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     pub fn set_deletion_shipped(&self, key: &LogKey) -> Result<(), StoreError> {

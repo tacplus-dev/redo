@@ -4,7 +4,7 @@
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use redo_model::s2sm::internal::grpc::servers::services::redo::site::RedoSiteHandler;
@@ -72,12 +72,13 @@ pub fn start_core(trust_domain: &str, dir: &Path, compact_after: u64, second_sit
 
 /// The second site, in process: the receiving site's own RedoSite handler,
 /// called as the shipping site's redo. While down it cannot be reached; a cut
-/// ends the stream open at the time.
+/// ends the stream open at the time. It records every shipment it is sent.
 pub struct InProcessSite {
     target: Arc<SiteServer>,
     caller_namespace: String,
     up: AtomicBool,
     cut: watch::Sender<u64>,
+    sent: Arc<Mutex<Vec<Shipment>>>,
 }
 
 impl InProcessSite {
@@ -87,7 +88,13 @@ impl InProcessSite {
             caller_namespace: format!("/tenants/{RESTORE}"),
             up: AtomicBool::new(true),
             cut: watch::channel(0).0,
+            sent: Arc::default(),
         })
+    }
+
+    /// The shipments sent to the second site so far, in order.
+    pub fn sent(&self) -> Vec<Shipment> {
+        self.sent.lock().unwrap().clone()
     }
 
     /// Takes the site down (cutting the open stream) or brings it back.
@@ -113,7 +120,11 @@ impl SecondSite for InProcessSite {
         let mut cut = self.cut.subscribe();
         cut.mark_unchanged();
         let caller = service_caller(&self.caller_namespace, "redo");
-        let inbound = Box::pin(shipments.map(Ok::<Shipment, tonic::Status>));
+        let sent = self.sent.clone();
+        let inbound = Box::pin(shipments.map(move |s| {
+            sent.lock().unwrap().push(s.clone());
+            Ok::<Shipment, tonic::Status>(s)
+        }));
         let acks = self.target.append(Some(&caller), tonic::Request::new(inbound)).await?.into_inner();
         // Until the cut, the acks; then the end of the stream.
         let cut = WatchStream::from_changes(cut).map(|_| None);

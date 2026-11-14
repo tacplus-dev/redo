@@ -228,8 +228,8 @@ fn deletion_removes_the_log_and_refuses_the_tenant_for_good() {
         s.append(&k, 2, vec![put("t.R", "y", b"2")]).unwrap();
         assert!(s.compact(&k, 1, 1).unwrap());
         s.set_shipped(&k, 2).unwrap();
-        assert!(s.delete(&k, true).unwrap());
-        assert!(!s.delete(&k, true).unwrap(), "deleting twice is a no-op");
+        assert!(s.delete(&k, Some("t-delete")).unwrap());
+        assert!(!s.delete(&k, Some("t-other")).unwrap(), "deleting twice is a no-op");
         assert!(matches!(s.append(&k, 3, vec![put("t.R", "x", b"1")]), Err(StoreError::Deleted)));
         assert!(matches!(s.replay(&k), Err(StoreError::Deleted)));
     }
@@ -240,13 +240,18 @@ fn deletion_removes_the_log_and_refuses_the_tenant_for_good() {
     let s = Store::open(dir.path()).unwrap();
     assert!(s.is_deleted(&k).unwrap());
     assert!(matches!(s.append(&k, 1, vec![put("t.R", "x", b"1")]), Err(StoreError::Deleted)));
-    assert!(s.deletion_unshipped(&k).unwrap());
+    // The unshipped deletion keeps its tombstone's trace_id across the restart.
+    assert_eq!(s.deletion_unshipped(&k).unwrap().as_deref(), Some("t-delete"));
     s.set_deletion_shipped(&k).unwrap();
-    assert!(!s.deletion_unshipped(&k).unwrap());
+    assert_eq!(s.deletion_unshipped(&k).unwrap(), None);
     // A tenant never seen is deleted all the same.
     let never = key("b1234567");
-    assert!(s.delete(&never, false).unwrap());
-    assert!(!s.deletion_unshipped(&never).unwrap());
+    assert!(s.delete(&never, None).unwrap());
+    assert_eq!(s.deletion_unshipped(&never).unwrap(), None);
+    // A marker written before it carried a trace_id is empty: no trace.
+    let old = key("c1234567");
+    assert!(s.delete(&old, Some("")).unwrap());
+    assert_eq!(s.deletion_unshipped(&old).unwrap().as_deref(), Some(""));
 }
 
 #[test]

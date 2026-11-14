@@ -132,7 +132,8 @@ impl Core {
                     continue;
                 }
             };
-            match self.store.delete(&key, true) {
+            // The deletion shipped to the second site carries the tombstone's trace_id.
+            match self.store.delete(&key, Some(&row.trace_id)) {
                 Ok(true) => {
                     tracing::info!(tenant = %key, "tenant deleted: its log is gone here, and goes at the second site");
                     self.shipped_sender(&key).send_modify(|s| s.deleted = true);
@@ -276,7 +277,7 @@ impl Core {
         };
         let (store, k) = (self.store.clone(), key.clone());
         let held = tokio::task::spawn_blocking(move || match body {
-            shipment::Body::Deletion(_) => store.delete(&k, false).map(|_| None),
+            shipment::Body::Deletion(_) => store.delete(&k, None).map(|_| None),
             shipment::Body::Operation(op) => match store.append(&k, op.seq, op.changes) {
                 Ok(()) => Ok(Some(op.seq)),
                 // A resend, or past a gap: the source goes on from what is held.

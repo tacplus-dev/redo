@@ -130,8 +130,8 @@ async fn ship_tenant(core: &Arc<Core>, key: &LogKey, tx: &mpsc::Sender<Shipment>
     let store = core.store.clone();
     let k = key.clone();
     let work = tokio::task::spawn_blocking(move || -> Result<Work, crate::store::StoreError> {
-        if store.deletion_unshipped(&k)? {
-            return Ok(Work::Deletion);
+        if let Some(trace_id) = store.deletion_unshipped(&k)? {
+            return Ok(Work::Deletion(trace_id));
         }
         if store.is_deleted(&k)? {
             return Ok(Work::None);
@@ -143,7 +143,6 @@ async fn ship_tenant(core: &Arc<Core>, key: &LogKey, tx: &mpsc::Sender<Shipment>
     .map_err(|e| local(Status::internal(e.to_string())))?
     .map_err(|e| local(Status::internal(format!("{key}: {e}"))))?;
 
-    // trace: unrelated: the shipper is background work; each batch is built from many Append requests, so it has no one trace to carry (and redolog.RedoAppend carries no trace_id).
     let shipment = |body| Shipment {
         tenant: RESTORE_TID.into(),
         source_trust_domain: key.trust_domain.clone(),
@@ -153,8 +152,12 @@ async fn ship_tenant(core: &Arc<Core>, key: &LogKey, tx: &mpsc::Sender<Shipment>
     };
     match work {
         Work::None => Ok(false),
-        Work::Deletion => {
-            send(tx, shipment(shipment::Body::Deletion(ShippedDeletion::default()))).await?;
+        Work::Deletion(trace_id) => {
+            // A deletion is caused by one kernel tombstone: it carries that row's
+            // trace_id, kept with the unshipped deletion (Store::delete), after a
+            // restart too.
+            let deletion = Shipment { trace_id, ..shipment(shipment::Body::Deletion(ShippedDeletion::default())) };
+            send(tx, deletion).await?;
             let a = next_ack(key, acks).await?;
             if !a.deleted {
                 return Err(ShipError::Stream(Status::internal(format!("{key}: the second site answered a deletion with seq {}", a.seq))));
@@ -179,6 +182,7 @@ async fn ship_tenant(core: &Arc<Core>, key: &LogKey, tx: &mpsc::Sender<Shipment>
             }
             let (n, last) = (ops.len(), ops.last().map(|o| o.seq).unwrap_or(0));
             for op in ops {
+                // trace: unrelated: the shipper is background work; each batch is built from many Append requests, so it has no one trace to carry (and redolog.RedoAppend carries no trace_id).
                 send(tx, shipment(shipment::Body::Operation(op))).await?;
             }
             let mut held = shipped;
@@ -206,7 +210,8 @@ async fn ship_tenant(core: &Arc<Core>, key: &LogKey, tx: &mpsc::Sender<Shipment>
 
 enum Work {
     None,
-    Deletion,
+    /// The tenant's deletion, with its tombstone's trace_id.
+    Deletion(String),
     /// The last seq the second site acked, and the operations after it.
     Operations(u64, Vec<redo_model::types::services::redo::redo::ShippedOperation>),
 }
