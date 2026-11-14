@@ -9,3 +9,4 @@ Append-only: add entries at the end, never edit or remove one (CI enforces it). 
 - 2026-11-08 looper issue tacplus floor 2.5 is behind the latest released line (2.6): move the floor to 2.6 and commit tacplus.lock (#8)
 - 2026-11-14 looper release v0.1.2 (https://github.com/tacplus-dev/redo/releases/tag/v0.1.2)
 - 2026-11-14 looper issue redo has no justfile: every build fails with no gates recipe (#11, 1df0772)
+- 2026-11-14 looper release v0.1.3 (https://github.com/tacplus-dev/redo/releases/tag/v0.1.3)
