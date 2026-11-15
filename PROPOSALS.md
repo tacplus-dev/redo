@@ -25,6 +25,16 @@ the looper then marks it `promoted` or `declined` here with the date.
   `tacplus.yaml` puts on every generated file) over looper-scan's default policy, copied. Once `tacplus pin` moves
   tacplus.lock to a release whose manifests declare their license (#368's backport to the 2.6 line, v2.6.4), delete
   the clarifications; if looper-scan's default policy changes meanwhile, `deny.toml`'s copy must follow it.
+- **Ship each operation with its append's `trace_id`, once the sys contract carries one** (2026-11-15, nightly
+  scan): tacplus's USER.md ("Distributed Tracing") says `trace_id` (field 200) is on every message, but the
+  messages tacplus 2.6.1 generates for the sys contract `redolog.Redo` (`RedoAppend`, `RedoAck`,
+  `RedoReplayRequest`, `RedoReplayEntry`, target/generated-sources/model/types/sys/redolog) have none, while
+  redo's own (`Shipment`, `ShippedOperation`, `ShipmentAck`) and kernel's `TenantIdRow` do. So a Stratum's trace
+  ends at `Append`, and the shipper's `// trace: unrelated:` markers in src/ship.rs are right today. When a tacplus
+  release gives `RedoAppend` its field 200 (tacplus#265 revisits tracing), keep each operation's `trace_id` in its
+  tail frame (`ShippedOperation` already has the field, so the frame format does not change) and ship it on the
+  operation's `Shipment`, as a deletion already carries its tombstone's (#10), with a test asserting it arrives;
+  drop the markers then. Until then there is nothing to propagate.
 
 ## Promoted / declined
 - **The gates in CI** (2026-10-28, #1; done 2026-11-14, #11): `tacplus build` resolves `depends: kernel` through
