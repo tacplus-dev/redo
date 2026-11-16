@@ -11,3 +11,4 @@ Append-only: add entries at the end, never edit or remove one (CI enforces it). 
 - 2026-11-14 looper issue redo has no justfile: every build fails with no gates recipe (#11, 1df0772)
 - 2026-11-14 looper release v0.1.3 (https://github.com/tacplus-dev/redo/releases/tag/v0.1.3)
 - 2026-11-14 looper issue Trace propagation: a tenant's deletion is shipped to the second site without its kernel tombstone's trace_id (src/ship.rs) (#10, 6f6d3cf)
+- 2026-11-16 looper issue Pin the build: floor 2.6 and a committed tacplus.lock, so the build pipeline and its security checks run on this repository (#9)
