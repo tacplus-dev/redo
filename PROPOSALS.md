@@ -35,6 +35,24 @@ the looper then marks it `promoted` or `declined` here with the date.
   tail frame (`ShippedOperation` already has the field, so the frame format does not change) and ship it on the
   operation's `Shipment`, as a deletion already carries its tombstone's (#10), with a test asserting it arrives;
   drop the markers then. Until then there is nothing to propagate.
+- **ROADMAP.md "Now" to the floor in force** (2026-11-16, #9): #9's change 4 asks for it, but a looper's land that
+  touches ROADMAP.md is refused unless the issue's own text says it is at Jody's request (tacplus-dev/looper#123),
+  and #9's does not, so this is for an agent at Jody's request (or for the looper, once #9's body says so). "Now"
+  still reads "Unreleased; no code yet (README and LICENSE only). On the Stratum critical path: tacplus#163 → #1 →
+  stratum#2." The line in force: "Released as source tags on main, v0.1.0 (2026-11-07) to v0.1.3 (2026-11-14); no
+  image yet (#2). tacplus floor 2.6, pinned at 2.6.1 by tacplus.lock (#8, #9); every land and build runs `just
+  gates` and the security checks in the pinned build image (gitlab.com/tacplus-dev/build, #11). The second site
+  waits on tacplus#204 (#1 step 2)."
+- **Unmaintained crates in the generated chassis' dependency tree** (2026-11-16, #9): the build pipeline's
+  security checks (cargo-deny and osv-scanner) report four advisories against Cargo.lock, all severity UNKNOWN,
+  none failing the policy: RUSTSEC-2025-0012 `backoff` 0.4.0 and RUSTSEC-2024-0384 `instant` 0.1.13 (through
+  `backoff`), both pulled by the generated `httpclient`; RUSTSEC-2025-0134 `rustls-pemfile` 2.2.0, pulled by
+  `httpclient` and `servicemanager`; RUSTSEC-2024-0449 `unsafe-libyaml` 0.2.11 (through `serde_yaml`), pulled by
+  `grpcconfig`, `grpcserver` and the generated types crate. None is a dependency of redo's own (Cargo.toml): they
+  are the chassis crates tacplus generates, so the fix is in tacplus (replace `backoff`, `rustls-pemfile` with
+  `rustls-pki-types`' parser, `serde_yaml` with a maintained fork), after which `tacplus pin` to the release that
+  carries it moves Cargo.lock here. Until then they are accepted as they stand: a `security-baseline.json`
+  (`looper-scan baseline`) would record them, but they are already not new to the checks and block nothing.
 
 ## Promoted / declined
 - **The gates in CI** (2026-10-28, #1; done 2026-11-14, #11): `tacplus build` resolves `depends: kernel` through
