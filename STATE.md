@@ -1,8 +1,8 @@
 # State: redo
 
-Overwritten to stay current (loopers and agents). Last updated: 2026-11-14 by the looper (#10).
+Overwritten to stay current (loopers and agents). Last updated: 2026-11-16 by the looper (#7).
 
-- **Version / line:** v0.1.3 (source tags on main; v0.1.0 the first, 2026-11-07; v0.1.3 the fix of #10); tacplus floor 2.6, pinned by
+- **Version / line:** v0.1.4 (source tags on main; v0.1.0 the first, 2026-11-07; v0.1.4 the fix of #7); tacplus floor 2.6, pinned by
   tacplus.lock (tacplus 2.6.1 and its `build` image by digest, #8)
 - **Works:** the build pipeline (gitlab.com/tacplus-dev/build) on every land: `just gates` (justfile: generate with
   the pinned tacplus, `cargo build --all-targets --locked`, `cargo test --locked`) and the security checks, whose
@@ -12,7 +12,8 @@ Overwritten to stay current (loopers and agents). Last updated: 2026-11-14 by th
   (never past what the second site acked); tenant isolation by the caller's `/tenants/<tid>` identity, logs keyed by
   trust domain + tid; `redo.RedoSite` `Append` (shipping, resends and gaps, catch-up after an outage or a restart);
   tenant deletion from kernel's tid tombstones, at both sites, idempotent; the deletion shipped to the second site
-  carries its tombstone's `trace_id`, kept on disk until the second site acks it (#10).
+  carries its tombstone's `trace_id`, kept on disk until the second site acks it (#10). The tests wait on one
+  60 s `DEADLINE`, so a write-back backlog after a compile does not fail the gates (#7).
 - **Released / deployed:** nowhere yet.
 - **Known gaps:** no deployed second site: a `DURABILITY_REMOTE` append is refused (FAILED_PRECONDITION) until the
   cross-deployment link (tacplus#204, #1 step 2). No image or Dockerfile yet (#2). Never run in a fleet: the
