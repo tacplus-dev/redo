@@ -23,8 +23,11 @@ the looper then marks it `promoted` or `declined` here with the date.
   manifests of the crates it generates, so the security job's cargo-deny fails each as `unlicensed`
   (tacplus-dev/tacplus#368). `deny.toml` clarifies the 22 generated crates as Apache-2.0 (the header
   `tacplus.yaml` puts on every generated file) over looper-scan's default policy, copied. Once `tacplus pin` moves
-  tacplus.lock to a release whose manifests declare their license (#368's backport to the 2.6 line, v2.6.4), delete
+  tacplus.lock to a release whose manifests declare their license (#368's backport to the 2.6 line), delete
   the clarifications; if looper-scan's default policy changes meanwhile, `deny.toml`'s copy must follow it.
+  (Nightly scan 2026-11-17: #368 is still open, and no 2.6 release carries it yet: v2.6.4, published 2026-11-08,
+  holds only #313's trace_id backport; the line is at v2.6.13. `deny.toml`'s comment naming "2.6.4" is wrong the
+  same way, so correct it when the clarifications go.)
 - **Ship each operation with its append's `trace_id`, once the sys contract carries one** (2026-11-15, nightly
   scan): tacplus's USER.md ("Distributed Tracing") says `trace_id` (field 200) is on every message, but the
   messages tacplus 2.6.1 generates for the sys contract `redolog.Redo` (`RedoAppend`, `RedoAck`,
