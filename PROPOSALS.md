@@ -56,6 +56,10 @@ the looper then marks it `promoted` or `declined` here with the date.
   `rustls-pki-types`' parser, `serde_yaml` with a maintained fork), after which `tacplus pin` to the release that
   carries it moves Cargo.lock here. Until then they are accepted as they stand: a `security-baseline.json`
   (`looper-scan baseline`) would record them, but they are already not new to the checks and block nothing.
+  (Nightly scan 2026-11-21: a fifth, RUSTSEC-2026-0543 `chrono` 0.4.45 unmaintained, severity UNKNOWN, no fixed
+  version, not blocking, pulled only by the generated `logger` crate; cargo-deny and osv-scanner both report it, and
+  a local `osv-scanner scan source --lockfile Cargo.lock` shows the same five. The fix goes in tacplus the same
+  way: the generated `logger` moves to `time` or `jiff`.)
 
 ## Promoted / declined
 - **The gates in CI** (2026-10-28, #1; done 2026-11-14, #11): `tacplus build` resolves `depends: kernel` through
