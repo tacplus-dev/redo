@@ -2,7 +2,7 @@
 
 Overwritten to stay current (loopers and agents). Last updated: 2026-11-22 by the looper (#13).
 
-- **Version / line:** v0.1.4 (source tags on main; v0.1.0 the first, 2026-11-07; v0.1.4 the fix of #7); tacplus floor 2.6, pinned by
+- **Version / line:** v0.1.5 (source tags on main; v0.1.0 the first, 2026-11-07; v0.1.5 the relock of #13); tacplus floor 2.6, pinned by
   tacplus.lock (tacplus 2.6.13 and its `build` image by digest, #8; relocked in #13)
 - **Works:** the build pipeline (gitlab.com/tacplus-dev/build) on every land: `just gates` (justfile: generate with
   the pinned tacplus, `cargo build --all-targets --locked`, `cargo test --locked`) and the security checks, whose
