@@ -1,9 +1,9 @@
 # State: redo
 
-Overwritten to stay current (loopers and agents). Last updated: 2026-11-16 by the looper (#7).
+Overwritten to stay current (loopers and agents). Last updated: 2026-11-22 by the looper (#13).
 
 - **Version / line:** v0.1.4 (source tags on main; v0.1.0 the first, 2026-11-07; v0.1.4 the fix of #7); tacplus floor 2.6, pinned by
-  tacplus.lock (tacplus 2.6.1 and its `build` image by digest, #8)
+  tacplus.lock (tacplus 2.6.13 and its `build` image by digest, #8; relocked in #13)
 - **Works:** the build pipeline (gitlab.com/tacplus-dev/build) on every land: `just gates` (justfile: generate with
   the pinned tacplus, `cargo build --all-targets --locked`, `cargo test --locked`) and the security checks, whose
   cargo-deny reads deny.toml (the generated crates clarified Apache-2.0 until the pin has tacplus#368's fix) (#11).
