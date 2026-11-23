@@ -28,6 +28,11 @@ the looper then marks it `promoted` or `declined` here with the date.
   (Nightly scan 2026-11-17: #368 is still open, and no 2.6 release carries it yet: v2.6.4, published 2026-11-08,
   holds only #313's trace_id backport; the line is at v2.6.13. `deny.toml`'s comment naming "2.6.4" is wrong the
   same way, so correct it when the clarifications go.)
+- **Pin the image's base by digest and upgrade it at build** (2026-11-23, #15): the Dockerfile's default
+  `BASE_IMAGE` is the `debian:trixie-slim` tag, as #15 asked (oauth's form), so each build takes whatever the tag
+  is that day, and the tag lags Debian's security fixes (gateway#38, llmproxy#62: zlib1g CVE-2026-85091). gateway
+  and llmproxy pin `debian:trixie-slim@sha256:…` and `apt-get upgrade` (gateway from a dated snapshot, for a
+  reproducible digest). Doing the same here wants the default to carry a digest and tests/release.rs to require one.
 - **Ship each operation with its append's `trace_id`, once the sys contract carries one** (2026-11-15, nightly
   scan): tacplus's USER.md ("Distributed Tracing") says `trace_id` (field 200) is on every message, but the
   messages tacplus 2.6.1 generates for the sys contract `redolog.Redo` (`RedoAppend`, `RedoAck`,
