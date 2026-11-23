@@ -42,3 +42,12 @@ the generated crates clarified as Apache-2.0, the license of the header `tacplus
 file, because tacplus 2.6.1 writes no `license` into their manifests
 ([tacplus#368](https://github.com/tacplus-dev/tacplus/issues/368)). There is no GitHub workflow for the gates
 ([PROPOSALS.md](PROPOSALS.md)).
+
+## The image
+
+The [Dockerfile](Dockerfile) compiles nothing: it layers a pre-built `target/release/redo` (glibc,
+`<arch>-unknown-linux-gnu`) and the launcher beside it, `launcher-linux-${TARGETARCH}`, onto `BASE_IMAGE`
+(`debian:trixie-slim` by default), as a fleet's image pipeline hands them over (fleet-seatrials
+`images/service.cloudbuild.yaml`), with the build args `VERSION`, `VCS_REF` and `TARGETARCH`, for linux/arm64 and
+linux/amd64. It runs as 65532:65532, owning `/var/lib/redo` (`Config.data_dir`'s default), under the launcher, which
+probes the chassis's plaintext health port, 8444. `cargo test` checks it against those inputs (tests/release.rs, #15).

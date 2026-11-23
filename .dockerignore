@@ -1,0 +1,10 @@
+# The image copies the pre-built binary and the launcher beside this file
+# (Dockerfile); the fleet pipeline's build tree stays out of the context.
+target/
+!target/release/redo
+.cargo/
+.fleet/
+.git/
+src/
+proto/
+tests/
