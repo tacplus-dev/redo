@@ -16,3 +16,4 @@ Append-only: add entries at the end, never edit or remove one (CI enforces it). 
 - 2026-11-22 looper issue Pinned images behind their lines: relock (tacplus.lock: tacplus 2.6.1 → 2.6.13, and 1 more) (#13)
 - 2026-11-23 looper release v0.1.6 (https://github.com/tacplus-dev/redo/releases/tag/v0.1.6)
 - 2026-11-23 looper issue Pinned images behind their lines: relock (tacplus.lock: tacplus 2.6.13 → 2.6.14, and 1 more) (#14)
+- 2026-11-23 looper release v0.1.7 (https://github.com/tacplus-dev/redo/releases/tag/v0.1.7)
