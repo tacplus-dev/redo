@@ -1,6 +1,6 @@
 # State: redo
 
-Overwritten to stay current (loopers and agents). Last updated: 2026-11-23 by the looper (#14).
+Overwritten to stay current (loopers and agents). Last updated: 2026-11-23 by the looper (#15).
 
 - **Version / line:** v0.1.6 (source tags on main; v0.1.0 the first, 2026-11-07; v0.1.6 the relock of #14); tacplus floor 2.6, pinned by
   tacplus.lock (tacplus 2.6.14 and its `build` image by digest, #8; relocked in #13 and #14)
@@ -14,9 +14,11 @@ Overwritten to stay current (loopers and agents). Last updated: 2026-11-23 by th
   tenant deletion from kernel's tid tombstones, at both sites, idempotent; the deletion shipped to the second site
   carries its tombstone's `trace_id`, kept on disk until the second site acks it (#10). The tests wait on one
   60 s `DEADLINE`, so a write-back backlog after a compile does not fail the gates (#7).
+  The release [Dockerfile](Dockerfile) the fleet's image pipeline builds (pre-built binary and launcher, base
+  `debian:trixie-slim`, 65532:65532, `HEALTH_PORT=8444`), checked by tests/release.rs in the gates (#15).
 - **Released / deployed:** nowhere yet.
 - **Known gaps:** no deployed second site: a `DURABILITY_REMOTE` append is refused (FAILED_PRECONDITION) until the
-  cross-deployment link (tacplus#204, #1 step 2). No image or Dockerfile yet (#2). Never run in a fleet: the
+  cross-deployment link (tacplus#204, #1 step 2). No published image or GitHub release yet (#2): the Dockerfile exists (#15), not the release workflow. Never run in a fleet: the
   kernel `ConfigState.tenant_ids` watch and the generated authorizer are exercised only by generation and
   compile, not end to end.
 - **Blocked on:** tacplus-dev/tacplus#204 (the link between sites, #1 step 2).
