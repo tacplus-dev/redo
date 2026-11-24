@@ -6,8 +6,10 @@
 # QEMU for a platform the worker is not. tests/release.rs checks this file.
 
 # The base is a build argument: a fleet may hand in its own hardened base, the
-# default is the public one (glibc, as the binary is built for).
-ARG BASE_IMAGE=debian:trixie-slim
+# default is the public one (glibc, as the binary is built for), pinned by digest
+# (#16: immutable tags only), so a rebuild ships the base that was scanned. Nightly
+# maintenance moves the digest (tacplus-dev/looper#234).
+ARG BASE_IMAGE=debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0
 FROM ${BASE_IMAGE}
 
 ARG VCS_REF

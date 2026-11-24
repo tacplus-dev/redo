@@ -56,12 +56,40 @@ fn layers_the_prebuilt_binary_on_the_base_and_compiles_nothing() {
         "one stage, from the base argument"
     );
     let all = instructions();
-    let base = all.iter().position(|i| i == "ARG BASE_IMAGE=debian:trixie-slim");
+    let base = all.iter().position(|i| i.starts_with("ARG BASE_IMAGE=debian:trixie-slim@sha256:"));
     let from = all.iter().position(|i| i == "FROM ${BASE_IMAGE}");
-    assert!(base.is_some() && base < from, "ARG BASE_IMAGE=debian:trixie-slim before the FROM: {all:#?}");
+    assert!(base.is_some() && base < from, "ARG BASE_IMAGE=debian:trixie-slim@sha256:… before the FROM: {all:#?}");
     has("COPY target/release/redo /usr/local/bin/redo");
     for i in with("RUN") {
         assert!(!i.contains("cargo") && !i.contains("rustc"), "the image compiles: {i}");
+    }
+}
+
+/// Every `FROM`, its build arguments read at their defaults, names its image by digest (#16; the decision
+/// security-gates-ship-only-2026-11-23, point 2: immutable tags only), so a rebuild of the same commit ships the
+/// same base. Nightly maintenance moves the digest (tacplus-dev/looper#234).
+#[test]
+fn every_base_is_pinned_by_digest() {
+    let all = instructions();
+    let defaults: Vec<(String, String)> = all
+        .iter()
+        .filter_map(|i| i.strip_prefix("ARG "))
+        .filter_map(|a| a.split_once('='))
+        .map(|(k, v)| (format!("${{{}}}", k.trim()), v.trim().to_string()))
+        .collect();
+    let froms = with("FROM");
+    assert!(!froms.is_empty(), "no FROM in {all:#?}");
+    for from in froms {
+        let mut image = from["FROM ".len()..].split_whitespace().next().unwrap_or_default().to_string();
+        for (arg, value) in &defaults {
+            image = image.replace(arg, value);
+        }
+        let (tagged, digest) = image.split_once("@sha256:").unwrap_or((image.as_str(), ""));
+        let hex = digest.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+        assert!(
+            tagged.contains(':') && digest.len() == 64 && hex,
+            "{from} is {image}, not <image>:<tag>@sha256:<digest>"
+        );
     }
 }
 
