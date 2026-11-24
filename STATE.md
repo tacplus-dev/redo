@@ -1,6 +1,6 @@
 # State: redo
 
-Overwritten to stay current (loopers and agents). Last updated: 2026-11-23 by the looper (#15).
+Overwritten to stay current (loopers and agents). Last updated: 2026-11-24 by the looper (#16).
 
 - **Version / line:** v0.1.7 (source tags on main; v0.1.0 the first, 2026-11-07; v0.1.6 the relock of #14; v0.1.7 the release
   Dockerfile of #15); tacplus floor 2.6, pinned by
@@ -16,7 +16,8 @@ Overwritten to stay current (loopers and agents). Last updated: 2026-11-23 by th
   carries its tombstone's `trace_id`, kept on disk until the second site acks it (#10). The tests wait on one
   60 s `DEADLINE`, so a write-back backlog after a compile does not fail the gates (#7).
   The release [Dockerfile](Dockerfile) the fleet's image pipeline builds (pre-built binary and launcher, base
-  `debian:trixie-slim`, 65532:65532, `HEALTH_PORT=8444`), checked by tests/release.rs in the gates (#15).
+  `debian:trixie-slim` pinned by digest, #16, 65532:65532, `HEALTH_PORT=8444`), checked by tests/release.rs in the
+  gates (#15; every `FROM` by digest, #16).
 - **Released / deployed:** nowhere yet.
 - **Known gaps:** no deployed second site: a `DURABILITY_REMOTE` append is refused (FAILED_PRECONDITION) until the
   cross-deployment link (tacplus#204, #1 step 2). No published image or GitHub release yet (#2): the Dockerfile exists (#15), not the release workflow. Never run in a fleet: the
