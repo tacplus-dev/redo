@@ -55,10 +55,17 @@ fn layers_the_prebuilt_binary_on_the_base_and_compiles_nothing() {
         ["FROM ${BASE_IMAGE}"],
         "one stage, from the base argument"
     );
+    // The default pinned by digest (#17): the tag alone names whatever it is the day of the build.
     let all = instructions();
-    let base = all.iter().position(|i| i == "ARG BASE_IMAGE=debian:trixie-slim");
+    let base = all.iter().position(|i| {
+        i.strip_prefix("ARG BASE_IMAGE=debian:trixie-slim@sha256:")
+            .is_some_and(|d| d.len() == 64 && d.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+    });
     let from = all.iter().position(|i| i == "FROM ${BASE_IMAGE}");
-    assert!(base.is_some() && base < from, "ARG BASE_IMAGE=debian:trixie-slim before the FROM: {all:#?}");
+    assert!(
+        base.is_some() && base < from,
+        "ARG BASE_IMAGE=debian:trixie-slim@sha256:<digest> before the FROM: {all:#?}"
+    );
     has("COPY target/release/redo /usr/local/bin/redo");
     for i in with("RUN") {
         assert!(!i.contains("cargo") && !i.contains("rustc"), "the image compiles: {i}");

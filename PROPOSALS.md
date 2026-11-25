@@ -33,6 +33,8 @@ the looper then marks it `promoted` or `declined` here with the date.
   is that day, and the tag lags Debian's security fixes (gateway#38, llmproxy#62: zlib1g CVE-2026-85091). gateway
   and llmproxy pin `debian:trixie-slim@sha256:…` and `apt-get upgrade` (gateway from a dated snapshot, for a
   reproducible digest). Doing the same here wants the default to carry a digest and tests/release.rs to require one.
+  (2026-11-25, #17: the default now carries the digest, `debian:trixie-slim@sha256:8aa5a7bf…`, and tests/release.rs
+  requires one; the nightly relock moves it. The `apt-get upgrade` at build is still open.)
 - **Ship each operation with its append's `trace_id`, once the sys contract carries one** (2026-11-15, nightly
   scan): tacplus's USER.md ("Distributed Tracing") says `trace_id` (field 200) is on every message, but the
   messages tacplus 2.6.1 generates for the sys contract `redolog.Redo` (`RedoAppend`, `RedoAck`,
