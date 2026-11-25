@@ -19,3 +19,4 @@ Append-only: add entries at the end, never edit or remove one (CI enforces it). 
 - 2026-11-23 looper release v0.1.7 (https://github.com/tacplus-dev/redo/releases/tag/v0.1.7)
 - 2026-11-23 looper issue No Dockerfile: the fleet's image build (fleet-seatrials) fails for redo (#15)
 - 2026-11-25 looper release v0.1.8 (https://github.com/tacplus-dev/redo/releases/tag/v0.1.8)
+- 2026-11-25 looper issue Pinned images behind their lines: relock (Dockerfile: debian:trixie-slim → debian:trixie-slim) (#17)
