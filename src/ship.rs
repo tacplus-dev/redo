@@ -18,7 +18,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
 use tonic::Status;
 
-use crate::service::{Core, RESTORE_TID};
+use crate::service::Core;
 use crate::site::{SecondSite, ShipmentAcks};
 use crate::store::LogKey;
 
@@ -144,7 +144,6 @@ async fn ship_tenant(core: &Arc<Core>, key: &LogKey, tx: &mpsc::Sender<Shipment>
     .map_err(|e| local(Status::internal(format!("{key}: {e}"))))?;
 
     let shipment = |body| Shipment {
-        tenant: RESTORE_TID.into(),
         source_trust_domain: key.trust_domain.clone(),
         tid: key.tid.clone(),
         body: Some(body),

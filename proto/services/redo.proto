@@ -3,17 +3,20 @@
 // Decision records (tacplus-dev/roadmap): decisions/stratum-per-tenant-2026-10-25.md
 // (items 6-8 and 11, "Scope now", and its 2026-10-28 addendum: the second site is
 // redo to redo), decisions/tenant-deletion-2026-10-27.md, and
-// decisions/tenant-routing-2026-10-26.md. The issue: tacplus-dev/redo#1.
+// decisions/tenant-routing-2026-10-26.md, and
+// decisions/s2s-never-crosses-tenants-2026-10-31.md (its 2026-11-07 addendum:
+// redo is a /system service). The issues: tacplus-dev/redo#1 and #19.
 //
-// ONE SERVICE FOR EVERY TENANT, not per tenant. It is a tenant service of the
-// reserved restore tenant (tid 00000002, SPIFFE
-// spiffe://<td>/tenants/00000002/services/redo), never a platform service in
-// /system. Each tenant's Stratum calls it tenant to tenant through the sys
-// contract redolog.Redo (sys/redo.proto, tacplus#163 D5), which this service
-// serves by its routing label "redo": Append (acked DURABILITY_LOCAL once on
-// this site's disk, DURABILITY_REMOTE once the second site has it too) and
-// Replay (the compacted snapshot, then the tail). The tenant a write belongs to
-// is the caller's verified identity (/tenants/<tid>), never a request field.
+// ONE SERVICE FOR EVERY TENANT, not per tenant. It is a /system service
+// (SPIFFE spiffe://<td>/system/services/redo), the custodian of every tenant's
+// log, in no tenant. Each tenant's Stratum calls it tenant to /system through
+// the sys contract redolog.Redo (sys/redo.proto, tacplus#163 D5, a /system
+// contract since tacplus#258), which this service serves by its routing label
+// "redo": Append (acked DURABILITY_LOCAL once on this site's disk,
+// DURABILITY_REMOTE once the second site has it too) and Replay (the compacted
+// snapshot, then the tail). It keeps each tenant's log apart by the caller's
+// tid, the verified tid claim of its token (a caller in /tenants/<name>), never
+// a request field: redolog's tenant fields are deprecated and ignored.
 //
 // Every log is keyed by trust domain and tenant, here and at the second site:
 // reserved tids such as people (00000001) are the same in every deployment.
@@ -37,7 +40,7 @@ package redo;
 import "sys/spec.proto";
 import "sys/redo.proto";
 
-option (spec.service) = {name: "redo", tenant_owned: true, pinned_tenant: "restore"};
+option (spec.service) = {name: "redo"};
 // Tenant deletion: kernel's tid tombstones (ConfigState.tenant_ids).
 option (spec.state_imports) = {source: "kernel.ConfigState"};
 
@@ -65,9 +68,9 @@ message Config {
 // ============================================================================
 
 // RedoSite is how one deployment's redo ships its logs to the redo at the
-// second site. Its only caller is the redo service, of another deployment, in
-// its own restore tenant. The site receiving a shipment keys it by the source
-// trust domain and tid, never by the tid alone.
+// second site. Its only caller is the /system redo service of another
+// deployment. The site receiving a shipment keys it by the source trust domain
+// and tid, never by the tid alone.
 service RedoSite {
   option (spec.service_s2s) = {};
 
@@ -83,16 +86,16 @@ service RedoSite {
   // which then refuses it for good; deleting a tenant twice, or one never
   // shipped, is acked all the same.
   rpc Append(stream Shipment) returns (stream ShipmentAck) {
-    option (spec.rpc) = {principal: RPC_PRINCIPAL_SERVICE, auth_services: ["redo"], route_field: "tenant"};
+    option (spec.rpc) = {principal: RPC_PRINCIPAL_SERVICE, auth_services: ["redo"]};
   }
 }
 
 // Shipment is one operation of one tenant's log, or that tenant's deletion.
 message Shipment {
-  // tenant is the TARGET tenant's tid, the receiving redo instance's own
-  // (restore), the route field. It is not the tenant the log belongs to: that
-  // is tid.
-  string tenant = 1 [(spec.assert_max_size) = 8];
+  // Field 1 was tenant, the route field to the restore tenant's redo; redo is
+  // a /system service since #19, reached by no tenant route.
+  reserved 1;
+  reserved "tenant";
   // source_trust_domain is the trust domain of the deployment whose log this
   // is, the one the source redo runs in.
   string source_trust_domain = 2 [(spec.assert_required) = true, (spec.assert_max_size) = 255];
@@ -105,7 +108,7 @@ message Shipment {
 }
 
 // ShippedOperation is one operation of the tenant's log, as the source logged
-// it: the redolog.RedoAppend the source acked, without its route field and
+// it: the redolog.RedoAppend the source acked, without its deprecated tenant and
 // durability.
 message ShippedOperation {
   uint64 seq = 1;

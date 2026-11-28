@@ -44,7 +44,12 @@ impl Appender {
     }
 
     async fn send(&self, seq: u64, changes: Vec<RedoChange>, durability: Durability) {
-        let a = RedoAppend { tenant: RESTORE.into(), seq, changes, durability: durability as i32, ..Default::default() };
+        self.send_as(None, seq, changes, durability).await;
+    }
+
+    /// Sends with `tenant` in the deprecated route field, which redo ignores.
+    async fn send_as(&self, tenant: Option<&str>, seq: u64, changes: Vec<RedoChange>, durability: Durability) {
+        let a = RedoAppend { tenant: tenant.unwrap_or_default().into(), seq, changes, durability: durability as i32, ..Default::default() };
         self.tx.send(Ok(a)).await.unwrap();
     }
 
@@ -65,7 +70,12 @@ fn ack(seq: u64, level: Durability) -> RedoAck {
 }
 
 async fn replay(redo: &RedoServer, caller: &Caller) -> Result<Vec<RedoReplayEntry>, tonic::Status> {
-    let req = RedoReplayRequest { tenant: RESTORE.into(), ..Default::default() };
+    replay_as(redo, caller, None).await
+}
+
+/// A replay with `tenant` in the deprecated route field, which redo ignores.
+async fn replay_as(redo: &RedoServer, caller: &Caller, tenant: Option<&str>) -> Result<Vec<RedoReplayEntry>, tonic::Status> {
+    let req = RedoReplayRequest { tenant: tenant.unwrap_or_default().into(), ..Default::default() };
     let mut s = redo.replay(Some(caller), req).await?.into_inner();
     let mut out = Vec::new();
     while let Some(e) = tokio::time::timeout(DEADLINE, s.next()).await.expect("replay stalled") {
@@ -241,21 +251,61 @@ async fn a_tenant_writes_and_reads_only_its_own_log() {
 }
 
 #[tokio::test]
+async fn the_request_tenant_field_is_ignored() {
+    // redolog's tenant fields are deprecated on the 2.6 line (tacplus#258): a
+    // tenant's stratum naming another tenant there still reaches only its own log.
+    let dir = tempfile::tempdir().unwrap();
+    let redo = RedoServer(start_core(ONE, dir.path(), 1000, None));
+    let mut b = Appender::open(&redo, &stratum(B)).await.unwrap();
+    b.send(1, vec![put("t.R", "x", b"b")], Durability::Local).await;
+    b.ack().await;
+
+    let mut a = Appender::open(&redo, &stratum(A)).await.unwrap();
+    a.send_as(Some(B), 1, vec![put("t.R", "x", b"a")], Durability::Local).await;
+    assert_eq!(a.ack().await, ack(1, Durability::Local), "seq 1 of A's log, not past B's");
+    assert_eq!(restore(&replay_as(&redo, &stratum(A), Some(B)).await.unwrap()).values().next().unwrap(), b"a");
+    let b_log = replay(&redo, &stratum(B)).await.unwrap();
+    assert_eq!(seqs(&b_log), vec![1]);
+    assert_eq!(restore(&b_log).values().next().unwrap(), b"b");
+}
+
+#[tokio::test]
+async fn the_tenant_is_the_tid_claim_never_the_namespace() {
+    // The namespace names the tenant, never its tid: one spelled like B's tid
+    // is still the tenant its tid claim says.
+    let dir = tempfile::tempdir().unwrap();
+    let redo = RedoServer(start_core(ONE, dir.path(), 1000, None));
+    let a_named_b = tenant_caller(&format!("/tenants/{B}"), Some(A), "stratum");
+    let mut a = Appender::open(&redo, &a_named_b).await.unwrap();
+    a.send(1, vec![put("t.R", "x", b"a")], Durability::Local).await;
+    a.ack().await;
+    assert_eq!(seqs(&replay(&redo, &stratum(A)).await.unwrap()), vec![1]);
+    assert!(replay(&redo, &stratum(B)).await.unwrap().is_empty());
+}
+
+#[tokio::test]
 async fn a_caller_without_a_tenant_identity_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     let redo = RedoServer(start_core(ONE, dir.path(), 1000, None));
     let callers = [
+        // /system, redo's own namespace among them: no tenant's log is theirs.
         service_caller("/system", "stratum"),
-        service_caller("/tenants/acme", "stratum"),
-        service_caller(&format!("/tenants/{A}/projects/p"), "stratum"),
-        service_caller("/tenants", "stratum"),
+        system_redo(),
+        tenant_caller("/system", Some(A), "stratum"),
+        // A tenant's namespace without a tid claim, or with one that is no tid.
+        tenant_caller("/tenants/acme", None, "stratum"),
+        tenant_caller(&format!("/tenants/{A}"), None, "stratum"),
+        tenant_caller("/tenants/acme", Some("acme"), "stratum"),
+        // Below or beside a tenant.
+        tenant_caller("/tenants/acme/projects/p", Some(A), "stratum"),
+        tenant_caller("/tenants", Some(A), "stratum"),
     ];
     for c in &callers {
         assert_eq!(Appender::open(&redo, c).await.err().unwrap().code(), Code::PermissionDenied);
         assert_eq!(replay(&redo, c).await.unwrap_err().code(), Code::PermissionDenied);
     }
-    let req = RedoReplayRequest { tenant: RESTORE.into(), ..Default::default() };
-    assert_eq!(redo.replay(None, req).await.err().unwrap().code(), Code::PermissionDenied);
+    assert_eq!(redo.replay(None, RedoReplayRequest::default()).await.err().unwrap().code(), Code::PermissionDenied);
+    assert!(replay(&redo, &stratum(A)).await.unwrap().is_empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -399,7 +449,6 @@ async fn compaction_never_folds_what_the_second_site_does_not_have() {
 
 fn operation(td: &str, tid: &str, seq: u64) -> Shipment {
     Shipment {
-        tenant: RESTORE.into(),
         source_trust_domain: td.into(),
         tid: tid.into(),
         body: Some(shipment::Body::Operation(ShippedOperation {
@@ -413,7 +462,6 @@ fn operation(td: &str, tid: &str, seq: u64) -> Shipment {
 
 fn deletion(td: &str, tid: &str) -> Shipment {
     Shipment {
-        tenant: RESTORE.into(),
         source_trust_domain: td.into(),
         tid: tid.into(),
         body: Some(shipment::Body::Deletion(ShippedDeletion::default())),
@@ -422,7 +470,7 @@ fn deletion(td: &str, tid: &str) -> Shipment {
 }
 
 async fn ship(site: &SiteServer, shipments: Vec<Shipment>) -> Vec<Result<ShipmentAck, tonic::Status>> {
-    let caller = service_caller(&format!("/tenants/{RESTORE}"), "redo");
+    let caller = system_redo();
     let inbound = Box::pin(tokio_stream::iter(shipments.into_iter().map(Ok)));
     let s = site.append(Some(&caller), tonic::Request::new(inbound)).await.unwrap().into_inner();
     tokio::time::timeout(DEADLINE, s.collect::<Vec<_>>()).await.unwrap()
@@ -589,14 +637,26 @@ async fn tombstones_that_arrive_before_the_store_opens_are_applied() {
 }
 
 #[tokio::test]
-async fn the_receiving_site_takes_shipments_only_from_the_restore_tenant() {
+async fn the_receiving_site_takes_shipments_only_from_system_redo() {
     let dir = tempfile::tempdir().unwrap();
     let site = SiteServer(start_core(TWO, dir.path(), 1000, None));
     let inbound = || Box::pin(tokio_stream::iter(vec![Ok(operation(ONE, A, 1))]));
-    for caller in [Some(service_caller(&format!("/tenants/{A}"), "redo")), Some(service_caller("/system", "redo")), None] {
+    let refused = [
+        Some(tenant_service(A, "redo")),
+        // The restore tenant, where redo ran before tacplus#258.
+        Some(tenant_service("00000002", "redo")),
+        Some(tenant_caller("/tenants/00000002", Some("00000002"), "redo")),
+        Some(service_caller("/system", "stratum")),
+        Some(tenant_caller("/system", Some(A), "redo")),
+        None,
+    ];
+    for caller in refused {
         let r = site.append(caller.as_ref(), tonic::Request::new(inbound())).await;
         assert_eq!(r.err().unwrap().code(), Code::PermissionDenied);
     }
+    assert_eq!(site.0.store.last_seq(&LogKey::new(ONE, A).unwrap()).unwrap_or(0), 0);
+    let got = ship(&site, vec![operation(ONE, A, 1)]).await;
+    assert_eq!(got.into_iter().map(Result::unwrap).collect::<Vec<_>>(), vec![site_ack(ONE, A, 1, false)]);
 }
 
 #[tokio::test]

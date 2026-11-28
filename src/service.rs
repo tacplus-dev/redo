@@ -6,9 +6,11 @@
 //!   DURABILITY_REMOTE once the second site has it too (the shipper, ship.rs).
 //!   MEMORY is never appended; REMOTE is refused while no second site is
 //!   configured rather than left waiting.
-//! - **Isolation.** The tenant a write belongs to is the caller's verified
-//!   `/tenants/<tid>` namespace, never a request field, and a log is keyed by
-//!   this site's trust domain and that tid.
+//! - **Isolation.** redo is a `/system` service, the custodian of every
+//!   tenant's log. The tenant a write belongs to is the verified `tid` claim of
+//!   a caller in a tenant (`/tenants/<name>`), never a request field (redolog's
+//!   `tenant` fields are deprecated and ignored, tacplus#258), and a log is
+//!   keyed by this site's trust domain and that tid.
 //! - **Compaction.** A tail of `compact_after` operations is folded into the
 //!   tenant's snapshot, never past what the second site acked.
 //! - **Deletion.** Kernel's tombstone deletes the tenant's log here at once and
@@ -36,9 +38,6 @@ use tonic::Status;
 use crate::ship::ShipQueue;
 use crate::site::SecondSite;
 use crate::store::{is_tid, is_trust_domain, LogKey, Store, StoreError};
-
-/// The reserved restore tenant, which the redo service runs in, in every deployment.
-pub(crate) const RESTORE_TID: &str = "00000002";
 
 type BoxStream<T> = std::pin::Pin<Box<dyn Stream<Item = Result<T, Status>> + Send>>;
 
@@ -155,18 +154,23 @@ impl Core {
         }
     }
 
-    /// The tenant the caller writes and reads as: its verified `/tenants/<tid>`
-    /// namespace, nothing below or beside it.
+    /// The tenant the caller writes and reads as: the verified `tid` claim of a
+    /// caller whose namespace is a tenant's (`/tenants/<name>`), nothing below
+    /// or beside it. The namespace names the tenant, never its tid, so the tid
+    /// is never derived from it (kernel#32).
     fn caller_key(&self, caller: Option<&Caller>) -> Result<LogKey, Status> {
         let caller = caller.ok_or_else(|| Status::permission_denied("the redo log needs the caller's tenant identity"))?;
         let ns = caller
             .token()
             .namespace_path()
             .map_err(|e| Status::permission_denied(format!("the caller's namespace: {e}")))?;
-        let tid = ns
-            .strip_prefix("/tenants/")
+        if !ns.strip_prefix("/tenants/").is_some_and(|name| !name.is_empty() && !name.contains('/')) {
+            return Err(Status::permission_denied(format!("the caller's namespace {ns:?} is not a tenant's (/tenants/<name>)")));
+        }
+        let tid = caller
+            .tid()
             .filter(|t| is_tid(t))
-            .ok_or_else(|| Status::permission_denied(format!("the caller's namespace {ns:?} is not a tenant's (/tenants/<tid>)")))?;
+            .ok_or_else(|| Status::permission_denied(format!("the caller in {ns:?} has no tid claim that is a tid")))?;
         LogKey::new(&self.trust_domain, tid).map_err(|e| Status::internal(e.to_string()))
     }
 
@@ -423,14 +427,14 @@ pub struct SiteServer(pub Arc<Core>);
 impl RedoSiteHandler for SiteServer {
     async fn append(&self, caller: Option<&Caller>, req: tonic::Request<BoxStream<Shipment>>) -> Result<tonic::Response<BoxStream<ShipmentAck>>, Status> {
         // The generated authorizer admits the redo service only; this is the
-        // redo of the restore tenant, the only one there is.
-        let ns = caller
-            .ok_or_else(|| Status::permission_denied("shipping needs the caller's identity"))?
-            .token()
+        // /system redo, the only one there is, never a tenant's service.
+        let token = caller.ok_or_else(|| Status::permission_denied("shipping needs the caller's identity"))?.token();
+        let ns = token
             .namespace_path()
             .map_err(|e| Status::permission_denied(format!("the caller's namespace: {e}")))?;
-        if ns != format!("/tenants/{RESTORE_TID}") {
-            return Err(Status::permission_denied(format!("shipments come from the restore tenant's redo, not {ns:?}")));
+        let service = token.service_path().unwrap_or_default();
+        if ns != "/system" || service != "redo" || token.tid().is_some() {
+            return Err(Status::permission_denied(format!("shipments come from the /system redo, not {service:?} in {ns:?}")));
         }
         let core = self.0.clone();
         let mut inbound = req.into_inner();

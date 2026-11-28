@@ -18,8 +18,6 @@ use tokio_stream::{Stream, StreamExt};
 use crate::service::{Core, Options, SiteServer};
 use crate::site::{SecondSite, ShipmentAcks, Shipments};
 
-pub const RESTORE: &str = "00000002";
-
 /// How long a test waits for what must come: an ack, a replay, a condition.
 /// Every append, deletion and compaction is fsynced first, and an fsync can
 /// wait seconds on a disk's write-back backlog (a build just before, say): a
@@ -49,19 +47,39 @@ pub fn del(record_type: &str, key: &str) -> RedoChange {
     }
 }
 
-/// A service caller in `namespace`, as the generated server passes it to a
-/// handler once the token is verified.
+/// A service caller in `namespace` with no tid claim (a `/system` service's),
+/// as the generated server passes it to a handler once the token is verified.
 pub fn service_caller(namespace: &str, service: &str) -> Caller {
+    tenant_caller(namespace, None, service)
+}
+
+/// A service of tenant `tid`, as kernel mints its token: the namespace names
+/// the tenant (never by its tid), and the `tid` claim carries its tid.
+pub fn tenant_service(tid: &str, service: &str) -> Caller {
+    tenant_caller(&format!("/tenants/tenant{tid}"), Some(tid), service)
+}
+
+/// A service caller in `namespace` with `tid` as its tid claim, or none, as
+/// the generated server passes it to a handler once the token is verified.
+pub fn tenant_caller(namespace: &str, tid: Option<&str>, service: &str) -> Caller {
     let mut t = token::token::Token::new();
     t.set_subject(format!("spiffe://td.test{namespace}/services/{service}")).unwrap();
     t.set_namespace(namespace).unwrap();
     t.set_sub_type("service").unwrap();
+    if let Some(tid) = tid {
+        t.set_tid(tid).unwrap();
+    }
     Caller::new(t, "request".into())
 }
 
 /// The Stratum of tenant `tid`.
 pub fn stratum(tid: &str) -> Caller {
-    service_caller(&format!("/tenants/{tid}"), "stratum")
+    tenant_service(tid, "stratum")
+}
+
+/// The redo of another deployment, a `/system` service: RedoSite's only caller.
+pub fn system_redo() -> Caller {
+    service_caller("/system", "redo")
 }
 
 /// A site's core on `dir`, shipping to `second_site` when there is one.
@@ -78,11 +96,10 @@ pub fn start_core(trust_domain: &str, dir: &Path, compact_after: u64, second_sit
 }
 
 /// The second site, in process: the receiving site's own RedoSite handler,
-/// called as the shipping site's redo. While down it cannot be reached; a cut
+/// called as the shipping site's `/system` redo. While down it cannot be reached; a cut
 /// ends the stream open at the time. It records every shipment it is sent.
 pub struct InProcessSite {
     target: Arc<SiteServer>,
-    caller_namespace: String,
     up: AtomicBool,
     cut: watch::Sender<u64>,
     sent: Arc<Mutex<Vec<Shipment>>>,
@@ -92,7 +109,6 @@ impl InProcessSite {
     pub fn new(target: Arc<Core>) -> Arc<Self> {
         Arc::new(Self {
             target: Arc::new(SiteServer(target)),
-            caller_namespace: format!("/tenants/{RESTORE}"),
             up: AtomicBool::new(true),
             cut: watch::channel(0).0,
             sent: Arc::default(),
@@ -126,7 +142,7 @@ impl SecondSite for InProcessSite {
         }
         let mut cut = self.cut.subscribe();
         cut.mark_unchanged();
-        let caller = service_caller(&self.caller_namespace, "redo");
+        let caller = system_redo();
         let sent = self.sent.clone();
         let inbound = Box::pin(shipments.map(move |s| {
             sent.lock().unwrap().push(s.clone());

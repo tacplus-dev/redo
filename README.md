@@ -13,12 +13,14 @@ Work arrives as issues; see github.com/tacplus-dev/looper.
 
 ## The service
 
-A tacplus service in Rust, a tenant service of the reserved `restore` tenant (tid `00000002`). It serves:
+A tacplus service in Rust, a `/system` service (`spiffe://<td>/system/services/redo`): the custodian of every
+tenant's log, in no tenant (#19; decisions/s2s-never-crosses-tenants-2026-10-31.md, its 2026-11-07 addendum). It serves:
 
 - **`redolog.Redo`**, the sys contract (tacplus `sys/redo.proto`), to every tenant's Stratum: `Append` (acked
   `DURABILITY_LOCAL` once on this site's disk, `DURABILITY_REMOTE` once the second site has it too) and `Replay`
-  (the snapshot, then the tail). The tenant a write belongs to is the caller's `/tenants/<tid>` identity.
-- **`redo.RedoSite`** ([proto/services/redo.proto](proto/services/redo.proto)), to the redo of another deployment:
+  (the snapshot, then the tail). The tenant a write belongs to is the verified `tid` claim of a caller in a
+  tenant (`/tenants/<name>`), never a request field: `redolog`'s `tenant` fields are deprecated and ignored (tacplus#258).
+- **`redo.RedoSite`** ([proto/services/redo.proto](proto/services/redo.proto)), to the `/system` redo of another deployment:
   `Append`, the stream one site ships its tenants' logs over, and their deletions.
 
 How it works is in [proto/services/redo.proto](proto/services/redo.proto) and [src/service.rs](src/service.rs);

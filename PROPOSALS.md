@@ -12,7 +12,7 @@ the looper then marks it `promoted` or `declined` here with the date.
   tenant's live entries at a seq, replacing the copy) closes that. It is a change to the `RedoSite` contract, so it
   wants a decision before step 2 of #1.
 - **Bind `source_trust_domain` to the caller's verified trust domain** (2026-10-28, #1): today the receiving site
-  refuses its own trust domain and any caller but a restore-tenant `redo`, but such a caller could still ship (and
+  refuses its own trust domain and any caller but the `/system` `redo` (#19), but such a caller could still ship (and
   delete) under another deployment's trust domain. With tacplus#204 the
   caller's identity carries its deployment's trust domain, and the receiving site should refuse a shipment that
   names another.
@@ -73,18 +73,15 @@ the looper then marks it `promoted` or `declined` here with the date.
   `Url::origin()` on nested `blob:` URLs, fixed in 2.5.9; severity UNKNOWN, not blocking, so not filed. `url` comes
   in through `reqwest`, `tower-http` and the generated `service_im`; redo's own src never calls `Url::origin`.
   `cargo update -p url --precise 2.5.9` would clear it; a `tacplus pin` that moves Cargo.lock may do so too.)
-- **redo as a `/system` service on tacplus 2.6.16, released** (2026-11-28, #19): Jody decided on 2026-11-07 (#1)
-  that redo is a `/system` service (`spiffe://<td>/system/services/redo`), not a tenant service of `restore`. On
-  tacplus 2.6.16, `sys/redo.proto`'s `redolog.Redo` is a `/system` contract with no route field (tacplus#258), so
-  v0.1.8's `tenant_owned: true, pinned_tenant: "restore"` no longer generates, and #18's relock is red on it.
-  fleet-seatrials#3 needs the release to lock kernel 0.2. The change: drop `tenant_owned`/`pinned_tenant` and
-  `RESTORE_TID`; the log's tenant stays the caller's verified `/tenants/<tid>`, with `RedoAppend.tenant` and
-  `RedoReplayRequest.tenant` ignored; `RedoSite.Append` loses its route field (`Shipment.tenant` reserved) and
-  takes shipments only from `/system` redo; the tests follow; `tacplus.lock` goes to 2.6.16 (folding in #18); tag
-  (v0.1.9 or v0.2.0, Jody's call). ROADMAP.md's "Now" and "Not doing" (a tenant service of `restore`) contradict
-  the decision and need an agent at Jody's request.
 
 ## Promoted / declined
+- **redo as a `/system` service on tacplus 2.6.16, released** (2026-11-28, #19; approved for Jody 2026-11-28, built
+  2026-11-28, #19): `tenant_owned`/`pinned_tenant` and `RESTORE_TID` gone; a log's tenant is the caller's verified
+  `tid` claim (tacplus 2.6.16: the namespace `/tenants/<name>` never names the tid), `RedoAppend.tenant` and
+  `RedoReplayRequest.tenant` ignored; `RedoSite.Append` has no route field (`Shipment` field 1 reserved) and takes
+  shipments only from `/system` `redo`; `tacplus.lock` at 2.6.16 (folding in #18); released as v0.2.0 (a new
+  identity and a changed `RedoSite`: breaking, so a minor on the 0.x line). Still open: ROADMAP.md's "Now" and
+  "Not doing" (a tenant service of `restore`) contradict the decision and need an agent at Jody's request.
 - **The gates in CI** (2026-10-28, #1; done 2026-11-14, #11): `tacplus build` resolves `depends: kernel` through
   the private tacplus-dev/registry, which a workflow's own token cannot read, so the gates ran only where tacplus had
   GitHub credentials (the looper). The build pipeline of decisions/builds-in-containers-2026-11-03.md
