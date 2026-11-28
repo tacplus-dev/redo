@@ -8,6 +8,7 @@ Unreleased; no code yet (README and LICENSE only). On the Stratum critical path:
 
 ## Next
 - Nothing unblocked yet.
+- redo as a `/system` service on tacplus 2.6.16, released, no restore tenant (#19; for fleet-seatrials#3; Jody 2026-11-07). Hub, on its recommendation with Jody's standing agreement (tp-act-on-recommendations), 2026-11-27.
 
 ## Later
 - The redo service: local ack, second-site copy, compaction, replay, tenant isolation (#1), after tacplus#163 and tacplus#170
